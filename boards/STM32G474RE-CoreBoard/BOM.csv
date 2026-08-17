@@ -1,26 +1,26 @@
 Qty,Value,Footprint,Designators,LCSC,Comment
-1,BOOT0,Button_Switch_SMD:SW_SPST_SKQG_WithoutStem,SW2,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
-1,RESET,Button_Switch_SMD:SW_SPST_SKQG_WithoutStem,SW1,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
-6,100nF,Capacitor_SMD:C_0402_1005Metric,"C1,C17,C2,C3,C4,C9",,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
-2,12pF,Capacitor_SMD:C_0402_1005Metric,"C13,C14",,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
-2,6.8pF,Capacitor_SMD:C_0402_1005Metric,"C15,C16",,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
-1,100nF,Capacitor_SMD:C_0603_1608Metric,C6,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
-1,1uF,Capacitor_SMD:C_0603_1608Metric,C10,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
-2,10uF,Capacitor_SMD:C_0805_2012Metric,"C7,C8",,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
-1,4.7uF,Capacitor_SMD:C_0805_2012Metric,C5,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
-1,DEBUG,Connector_PinHeader_2.54mm:PinHeader_1x10_P2.54mm_Vertical,J6,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
-1,PORT_B,Connector_PinHeader_2.54mm:PinHeader_1x16_P2.54mm_Vertical,J3,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
-1,PORT_L,Connector_PinHeader_2.54mm:PinHeader_1x16_P2.54mm_Vertical,J2,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
-1,PORT_R,Connector_PinHeader_2.54mm:PinHeader_1x16_P2.54mm_Vertical,J4,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
-1,PORT_T,Connector_PinHeader_2.54mm:PinHeader_1x16_P2.54mm_Vertical,J5,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
-1,USB-C,Connector_USB:USB_C_Receptacle_HRO_TYPE-C-31-M-12,J1,C165948,
-1,8MHz,Crystal:Crystal_SMD_5032-2Pin_5.0x3.2mm,Y1,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
-1,32.768kHz,Crystal:Crystal_SMD_MicroCrystal_CC7V-T1A-2Pin_3.2x1.5mm,Y2,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
-1,LED,LED_SMD:LED_0805_2012Metric,D1,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
-4,M2,MountingHole:MountingHole_2.2mm_M2,"H1,H2,H3,H4",,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
-1,STM32G474RET6,Package_QFP:LQFP-64_10x10mm_P0.5mm,U1,C521608,
-1,AP2112K-3.3,Package_TO_SOT_SMD:SOT-23-5,U2,C51118,
-1,0R/FB,Resistor_SMD:R_0402_1005Metric,R3,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
-1,10k,Resistor_SMD:R_0402_1005Metric,R4,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
-1,1k,Resistor_SMD:R_0402_1005Metric,R5,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
-2,5.1k,Resistor_SMD:R_0402_1005Metric,"R1,R2",,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+6,100nF,auto_probe:C_0402_1005Metric,"C1,C17,C2,C3,C4,C9",,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+2,12pF,auto_probe:C_0402_1005Metric,"C13,C14",,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+2,6.8pF,auto_probe:C_0402_1005Metric,"C15,C16",,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,100nF,auto_probe:C_0603_1608Metric,C6,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,1uF,auto_probe:C_0603_1608Metric,C10,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+2,10uF,auto_probe:C_0805_2012Metric,"C7,C8",,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,4.7uF,auto_probe:C_0805_2012Metric,C5,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,8MHz,auto_probe:Crystal_SMD_5032-2Pin_5.0x3.2mm,Y1,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,32.768kHz,auto_probe:Crystal_SMD_MicroCrystal_CC7V-T1A-2Pin_3.2x1.5mm,Y2,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,LED,auto_probe:LED_0805_2012Metric,D1,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,STM32G474RET6,auto_probe:LQFP-64_10x10mm_P0.5mm,U1,C521608,
+4,M2,auto_probe:MountingHole_2.2mm_M2,"H1,H2,H3,H4",,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,DEBUG,auto_probe:PinHeader_1x10_P2.54mm_Vertical,J6,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,PORT_B,auto_probe:PinHeader_1x16_P2.54mm_Vertical,J3,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,PORT_L,auto_probe:PinHeader_1x16_P2.54mm_Vertical,J2,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,PORT_R,auto_probe:PinHeader_1x16_P2.54mm_Vertical,J4,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,PORT_T,auto_probe:PinHeader_1x16_P2.54mm_Vertical,J5,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,0R/FB,auto_probe:R_0402_1005Metric,R3,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,10k,auto_probe:R_0402_1005Metric,R4,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,1k,auto_probe:R_0402_1005Metric,R5,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+2,5.1k,auto_probe:R_0402_1005Metric,"R1,R2",,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,AP2112K-3.3,auto_probe:SOT-23-5,U2,C51118,
+1,BOOT0,auto_probe:SW_SPST_SKQG_WithoutStem,SW2,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,RESET,auto_probe:SW_SPST_SKQG_WithoutStem,SW1,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,USB-C,auto_probe:USB_C_Receptacle_HRO_TYPE-C-31-M-12,J1,C165948,

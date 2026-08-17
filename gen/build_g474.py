@@ -181,6 +181,10 @@ for i, n in enumerate(["GND", "+3V3", "VBUS"]):
     d.add(kigen.Part("#FLG%d" % i, "power:PWR_FLAG", "PWR_FLAG", "", {"1": n}, at=(534, 340 + 22 * i)))
 
 os.makedirs(OUT, exist_ok=True)
+# схема ссылается на ту же библиотеку проекта, что и плата
+for _pt in d.parts:
+    if ":" in _pt.footprint:
+        _pt.footprint = "auto_probe:" + _pt.footprint.split(":", 1)[1]
 d.write_sch(os.path.join(OUT, NAME + ".kicad_sch"))
 for p in d.parts:
     if p.ref.startswith("#"):
@@ -696,6 +700,37 @@ for _g in list(b.fps["J1"].GraphicalItems()):
         b.fps["J1"].Remove(_g)
 
 b.set_model("J1", "${KICAD6_3DMODEL_DIR}/Connector_USB.3dshapes/USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal.wrl")
+
+# ------------------------------------------------ своя библиотека футпринтов
+# KiCad сравнивает футпринты платы с библиотечными. Системные библиотеки
+# отличаются от версии к версии, поэтому кладём свои копии рядом с проектом:
+# проект перестаёт зависеть от версии KiCad и от того, что стоит у сборщика.
+FPLIB = "auto_probe"
+LIBDIR = os.path.join(OUT, FPLIB + ".pretty")
+os.makedirs(LIBDIR, exist_ok=True)
+for _f in os.listdir(LIBDIR):
+    if _f.endswith(".kicad_mod"):
+        os.remove(os.path.join(LIBDIR, _f))
+_saved = set()
+for _fp in b.b.GetFootprints():
+    _nm = str(_fp.GetFPID().GetLibItemName())
+    if _nm not in _saved:
+        _c = _fp.Duplicate()
+        if _c.IsFlipped():
+            _c.Flip(_c.GetPosition(), False)
+        _c.SetPosition(pcbnew.VECTOR2I(0, 0))
+        _c.SetOrientationDegrees(0)
+        _c.SetReference("REF**")
+        _c.SetValue(_nm)
+        pcbnew.FootprintSave(LIBDIR, _c)
+        _saved.add(_nm)
+    _fp.SetFPID(pcbnew.LIB_ID(FPLIB, _nm))
+print("библиотека проекта: %d футпринтов" % len(_saved))
+
+with open(os.path.join(OUT, "fp-lib-table"), "w") as _t:
+    _t.write('(fp_lib_table\n  (version 7)\n'
+             '  (lib (name "%s")(type "KiCad")(uri "${KIPRJMOD}/%s.pretty")(options "")(descr "Footprints used by this board"))\n)\n'
+             % (FPLIB, FPLIB))
 
 b.finish(os.path.join(OUT, NAME + ".kicad_pcb"))
 
