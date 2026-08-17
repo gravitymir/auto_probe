@@ -30,8 +30,8 @@ class Builder:
     def _setup_rules(self):
         ds = self.b.GetDesignSettings()
         ds.m_TrackMinWidth = mm(0.15)
-        ds.m_ViasMinSize = mm(0.45)
-        ds.m_MinThroughDrill = mm(0.25)
+        ds.m_ViasMinSize = mm(0.4)          # мелкие via нужны только в выходе из USB-C
+        ds.m_MinThroughDrill = mm(0.2)      # предел JLCPCB - 0.25/0.15, запас остаётся
         ds.m_HoleToHoleMin = mm(0.25)
         ds.m_HoleClearance = mm(0.2)
         ds.m_CopperEdgeClearance = mm(0.3)

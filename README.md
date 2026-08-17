@@ -67,7 +67,7 @@ boards/STM32G474RE-CoreBoard/STM32G474RE-CoreBoard_gerbers.zip
 
 Внутри: 4 слоя меди, паяльная маска, шелкография, паста, контур платы (`.gm1`) и сверловка
 (PTH / NPTH раздельно). Параметры заказа: 4 слоя, 1.6 мм, HASL или ENIG, минимальный
-зазор 0.15 мм, минимальное отверстие 0.25 мм.
+зазор 0.2 мм, минимальное отверстие 0.2 мм.
 
 Для монтажа на заводе — [`BOM.csv`](boards/STM32G474RE-CoreBoard/BOM.csv) и
 [`pos.csv`](boards/STM32G474RE-CoreBoard/pos.csv). В BOM проставлены номера LCSC для

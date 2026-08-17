@@ -16,7 +16,7 @@ OFFY = 6.0                                 # кристалл ниже цент�
 BCX, BCY = CX + OFFX, CY - OFFY
 X0, X1, Y0, Y1 = BCX - BW / 2, BCX + BW / 2, BCY - BH / 2, BCY + BH / 2
 FCU, BCU = pcbnew.F_Cu, pcbnew.B_Cu
-W, WP, WD = 0.15, 0.35, 0.14   # сигнальная / силовая / USB D+D-
+W, WP, WD = 0.15, 0.35, 0.15   # сигнальная / силовая / USB D+D-
 
 MCU_LIBID = "MCU_ST_STM32G4:STM32G474RETx"
 MCU_FP = ("Package_QFP", "LQFP-64_10x10mm_P0.5mm")
@@ -342,11 +342,11 @@ DMY_ = sorted({PY_("A7"), PY_("B7")})
 LDM, LDP = UX - 4.3, UX - 2.3
 for y in DMY_:
     b.track("USB_DM", [(UX, y), (LDM, y)], FCU, WD)
-    b.via("USB_DM", LDM, y, dia=0.45, drill=0.25)
+    b.via("USB_DM", LDM, y, dia=0.4, drill=0.2)
 b.track("USB_DM", [(LDM, DMY_[0]), (LDM, DMY_[1])], BCU, WD)
 for y in DPY_:
     b.track("USB_DP", [(UX, y), (LDP, y)], FCU, WD)
-    b.via("USB_DP", LDP, y, dia=0.45, drill=0.25)
+    b.via("USB_DP", LDP, y, dia=0.4, drill=0.2)
 b.track("USB_DP", [(LDP, DPY_[0]), (LDP, DPY_[1])], BCU, WD)
 hx, hy = hxy(46)
 b.track("USB_DP", [(LDP, DPY_[0]), (LDP, hy), (hx, hy)], BCU, WD)
@@ -707,7 +707,7 @@ if os.path.exists(_pro):
     for _c in _d.get("net_settings", {}).get("classes", []):
         if _c.get("name") == "Default":
             _c["track_width"] = W
-    _d.setdefault("board", {}).setdefault("design_settings", {}).setdefault("rules", {})["min_track_width"] = 0.13
+    _d.setdefault("board", {}).setdefault("design_settings", {}).setdefault("rules", {})["min_track_width"] = 0.15
     json.dump(_d, open(_pro, "w"), indent=2)
 json.dump({"hdrmap": {"%s.%s" % k: v for k, v in hdrmap.items()},
            "sides": sides, "pads": {str(k): v for k, v in pads.items()},
