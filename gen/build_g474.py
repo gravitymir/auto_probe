@@ -342,11 +342,11 @@ DMY_ = sorted({PY_("A7"), PY_("B7")})
 LDM, LDP = UX - 4.3, UX - 2.3
 for y in DMY_:
     b.track("USB_DM", [(UX, y), (LDM, y)], FCU, WD)
-    b.via("USB_DM", LDM, y, dia=0.4, drill=0.2)
+    b.via("USB_DM", LDM, y, dia=0.45, drill=0.25)
 b.track("USB_DM", [(LDM, DMY_[0]), (LDM, DMY_[1])], BCU, WD)
 for y in DPY_:
     b.track("USB_DP", [(UX, y), (LDP, y)], FCU, WD)
-    b.via("USB_DP", LDP, y, dia=0.4, drill=0.2)
+    b.via("USB_DP", LDP, y, dia=0.45, drill=0.25)
 b.track("USB_DP", [(LDP, DPY_[0]), (LDP, DPY_[1])], BCU, WD)
 hx, hy = hxy(46)
 b.track("USB_DP", [(LDP, DPY_[0]), (LDP, hy), (hx, hy)], BCU, WD)
