@@ -16,7 +16,7 @@ OFFY = 6.0                                 # кристалл ниже цент�
 BCX, BCY = CX + OFFX, CY - OFFY
 X0, X1, Y0, Y1 = BCX - BW / 2, BCX + BW / 2, BCY - BH / 2, BCY + BH / 2
 FCU, BCU = pcbnew.F_Cu, pcbnew.B_Cu
-W, WP = 0.2, 0.35
+W, WP, WD = 0.15, 0.35, 0.14   # сигнальная / силовая / USB D+D-
 
 MCU_LIBID = "MCU_ST_STM32G4:STM32G474RETx"
 MCU_FP = ("Package_QFP", "LQFP-64_10x10mm_P0.5mm")
@@ -72,7 +72,7 @@ JY = Y0 + 9.6                       # ряд отладочного разъём
 b.place("J6", HDRLIB, "PinHeader_1x10_P2.54mm_Vertical", X1 - 5.6, JY, 270, value="DEBUG")
 b.place("SW2", "Button_Switch_SMD", "SW_SPST_SKQG_WithoutStem", BCX - 3.5, TOPY, 180, value="BOOT0")
 b.place("SW1", "Button_Switch_SMD", "SW_SPST_SKQG_WithoutStem", BCX - 15.0, TOPY, 180, value="RESET")
-b.place("D1", "LED_SMD", "LED_0805_2012Metric", BCX - 26.6, TOPY, 0, value="USER")
+b.place("D1", "LED_SMD", "LED_0805_2012Metric", BCX - 26.6, TOPY, 0, value="LED")
 b.place("R5", R0402[0], R0402[1], BCX - 23.7, TOPY, 0, value="1k")
 b.place("R4", R0402[0], R0402[1], BCX + 0.0, TOPY + 5.6, 0, value="10k")
 
@@ -111,6 +111,7 @@ for hx, hy in ((X0 + 3.0, Y0 + 3.0), (X0 + 3.0, Y1 - 3.0), (X1 - 3.5, Y1 - 3.5),
     b.b.Add(fp)
     fp.SetPosition(pcbnew.VECTOR2I(mm(hx), mm(hy)))
     HN += 1
+    fp.SetFPID(pcbnew.LIB_ID("MountingHole", "MountingHole_2.2mm_M2"))
     fp.SetReference("H%d" % HN)
     fp.SetValue("M2")
     fp.Reference().SetVisible(False)
@@ -168,11 +169,14 @@ for i, ref in enumerate(sorted(CAPNET, key=lambda r: int(r[1:]))):
     d.add(kigen.Part(ref, "Device:C", CAPVAL[ref], FPOF[ref], {"1": a, "2": k},
                      at=(412 + 52 * (i // 8), 72 + 36 * (i % 8))))
 RES = {"R1": ("5.1k", ("CC1", "GND")), "R2": ("5.1k", ("CC2", "GND")),
-       "R3": ("0R", ("+3V3", "+3V3A")), "R4": ("10k", ("BOOT0", "GND")),
+       "R3": ("0R/FB", ("+3V3", "+3V3A")), "R4": ("10k", ("BOOT0", "GND")),
        "R5": ("1k", ("LED_K", "GND"))}
 for i, ref in enumerate(sorted(RES)):
     val, (a, k) = RES[ref]
     d.add(kigen.Part(ref, "Device:R", val, "%s:%s" % R0402, {"1": a, "2": k}, at=(534, 72 + 36 * i)))
+for i in range(1, 5):
+    d.add(kigen.Part("H%d" % i, "Mechanical:MountingHole", "M2",
+                     "MountingHole:MountingHole_2.2mm_M2", {}, at=(560, 70 + 20 * i)))
 for i, n in enumerate(["GND", "+3V3", "VBUS"]):
     d.add(kigen.Part("#FLG%d" % i, "power:PWR_FLAG", "PWR_FLAG", "", {"1": n}, at=(534, 340 + 22 * i)))
 
@@ -222,15 +226,34 @@ def stub(ref, pin, net, dist=1.4, width=W, sgn=None):
 
 
 # питание МК -> внутрь корпуса -> via в полигоны
+def _away(n, other, d=0.35):
+    """Единичный сдвиг от вывода other к выводу n (чтобы via земли ушла от дорожки питания)."""
+    dx, dy = pads[n][0] - pads[other][0], pads[n][1] - pads[other][1]
+    L = math.hypot(dx, dy) or 1.0
+    return dx / L * d, dy / L * d
+
+
 for vss, vdd in PAIRS:
     for n, net, dist in ((vss, "GND", 1.8), (vdd, "+3V3", 3.0)):
         p, v = padpt(n), inward(n, dist)
-        b.track(net, [p, v], FCU, 0.18)
+        if net == "GND":
+            ox, oy = _away(vss, vdd)
+            k = inward(n, 0.95)
+            v = (v[0] + ox, v[1] + oy)
+            b.track(net, [p, k, v], FCU, 0.15)
+        else:
+            b.track(net, [p, v], FCU, 0.15)
         b.via(net, *v, dia=0.5, drill=0.25)
         INNER[n] = v
 for n, net, dist in ((27, "GND", 1.8), (29, "+3V3A", 3.0), (28, "+3V3A", 4.2), (1, "+3V3", 1.35)):
     p, v = padpt(n), inward(n, dist)
-    b.track(net, [p, v], FCU, 0.18)
+    if n == 27:
+        ox, oy = _away(27, 28)
+        k = inward(n, 0.95)
+        v = (v[0] + ox, v[1] + oy)
+        b.track(net, [p, k, v], FCU, 0.15)
+    else:
+        b.track(net, [p, v], FCU, 0.15)
     b.via(net, *v, dia=0.5, drill=0.25)
     INNER[n] = v
 
@@ -292,7 +315,7 @@ b.track("VBUS", [(UX, YL0), (XVBUS, YL0)], FCU, WP)
 b.via("VBUS", XVBUS, YL0, dia=0.6, drill=0.3)
 # верхний пад VBUS уводим отдельной колонкой, чтобы не пересечь D+/D-
 YU, YL = sorted((PY_("A9"), PY_("A4")))
-XU = UX - 0.4
+XU = UX - 0.85
 b.track("VBUS", [(UX, YU), (XU, YU)], FCU, WP)
 b.via("VBUS", XU, YU, dia=0.6, drill=0.3)
 b.track("VBUS", [(XU, YU), (XU, YL + 1.4), (XVBUS, YL + 1.4), (XVBUS, YL)], BCU, WP)
@@ -318,17 +341,17 @@ DPY_ = sorted({PY_("A6"), PY_("B6")})
 DMY_ = sorted({PY_("A7"), PY_("B7")})
 LDM, LDP = UX - 4.3, UX - 2.3
 for y in DMY_:
-    b.track("USB_DM", [(UX, y), (LDM, y)], FCU, 0.18)
+    b.track("USB_DM", [(UX, y), (LDM, y)], FCU, WD)
     b.via("USB_DM", LDM, y, dia=0.45, drill=0.25)
-b.track("USB_DM", [(LDM, DMY_[0]), (LDM, DMY_[1])], BCU, 0.18)
+b.track("USB_DM", [(LDM, DMY_[0]), (LDM, DMY_[1])], BCU, WD)
 for y in DPY_:
-    b.track("USB_DP", [(UX, y), (LDP, y)], FCU, 0.18)
+    b.track("USB_DP", [(UX, y), (LDP, y)], FCU, WD)
     b.via("USB_DP", LDP, y, dia=0.45, drill=0.25)
-b.track("USB_DP", [(LDP, DPY_[0]), (LDP, DPY_[1])], BCU, 0.18)
+b.track("USB_DP", [(LDP, DPY_[0]), (LDP, DPY_[1])], BCU, WD)
 hx, hy = hxy(46)
-b.track("USB_DP", [(LDP, DPY_[0]), (LDP, hy), (hx, hy)], BCU, 0.18)
+b.track("USB_DP", [(LDP, DPY_[0]), (LDP, hy), (hx, hy)], BCU, WD)
 hx, hy = hxy(45)
-b.track("USB_DM", [(LDM, DMY_[1]), (LDM - 0.6, DMY_[1] + 1.0), (LDM - 0.6, hy), (hx, hy)], BCU, 0.18)
+b.track("USB_DM", [(LDM, DMY_[1]), (LDM - 0.6, DMY_[1] + 1.0), (LDM - 0.6, hy), (hx, hy)], BCU, WD)
 
 # --- отладочный разъём 1x10 (порядок как у WeAct MiniDebugger)
 j = lambda n: b.padxy("J6", n)
@@ -643,7 +666,7 @@ def put_value(ref, s, size=0.8, thick=0.15):
 
 VALSILK = [("Y1", "8MHz"), ("Y2", "32.768kHz"), ("U2", "AP2112K-3.3")]
 VALSILK += [(r_, v) for r_, v in sorted(CAPVAL.items(), key=lambda kv: int(kv[0][1:]))]
-VALSILK += [(r_, RES[r_][0]) for r_ in sorted(RES)]
+VALSILK += [(r_, {"R3": "0R"}.get(r_, RES[r_][0])) for r_ in sorted(RES)]   # на шелке короче, в BOM полное
 VALSILK += [("D1", "LED")]
 REFFIX = [r_ for r_, v in VALSILK] + ["J1", "J2", "J3", "J4", "J5", "J6", "SW1", "SW2", "U1"]
 for r_, v in VALSILK:                       # закреплённые вручную - первыми, чтобы их место было занято
@@ -683,8 +706,8 @@ if os.path.exists(_pro):
     _d = json.load(open(_pro))
     for _c in _d.get("net_settings", {}).get("classes", []):
         if _c.get("name") == "Default":
-            _c["clearance"] = 0.15
-    _d.setdefault("board", {}).setdefault("design_settings", {}).setdefault("rules", {})["min_clearance"] = 0.15
+            _c["track_width"] = W
+    _d.setdefault("board", {}).setdefault("design_settings", {}).setdefault("rules", {})["min_track_width"] = 0.13
     json.dump(_d, open(_pro, "w"), indent=2)
 json.dump({"hdrmap": {"%s.%s" % k: v for k, v in hdrmap.items()},
            "sides": sides, "pads": {str(k): v for k, v in pads.items()},

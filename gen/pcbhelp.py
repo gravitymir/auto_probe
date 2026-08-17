@@ -49,6 +49,7 @@ class Builder:
         fp = pcbnew.FootprintLoad("%s/%s.pretty" % (FPDIR, lib), name)
         if fp is None:
             raise KeyError("%s:%s" % (lib, name))
+        fp.SetFPID(pcbnew.LIB_ID(lib, name))     # без имени библиотеки KiCad ругается на несоответствие схеме
         fp.SetReference(ref)
         fp.SetValue(value or name)
         self.b.Add(fp)
