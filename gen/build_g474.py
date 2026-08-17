@@ -228,7 +228,7 @@ for vss, vdd in PAIRS:
         b.track(net, [p, v], FCU, 0.18)
         b.via(net, *v, dia=0.5, drill=0.25)
         INNER[n] = v
-for n, net, dist in ((27, "GND", 1.8), (29, "+3V3A", 3.0), (28, "+3V3A", 4.2), (1, "+3V3", 1.8)):
+for n, net, dist in ((27, "GND", 1.8), (29, "+3V3A", 3.0), (28, "+3V3A", 4.2), (1, "+3V3", 1.35)):
     p, v = padpt(n), inward(n, dist)
     b.track(net, [p, v], FCU, 0.18)
     b.via(net, *v, dia=0.5, drill=0.25)
@@ -319,7 +319,7 @@ DMY_ = sorted({PY_("A7"), PY_("B7")})
 LDM, LDP = UX - 4.3, UX - 2.3
 for y in DMY_:
     b.track("USB_DM", [(UX, y), (LDM, y)], FCU, 0.18)
-    b.via("USB_DM", LDM, y, dia=0.4, drill=0.2)
+    b.via("USB_DM", LDM, y, dia=0.45, drill=0.25)
 b.track("USB_DM", [(LDM, DMY_[0]), (LDM, DMY_[1])], BCU, 0.18)
 for y in DPY_:
     b.track("USB_DP", [(UX, y), (LDP, y)], FCU, 0.18)
@@ -657,9 +657,35 @@ _skip = [r_ for r_, v in VALSILK if r_ not in VAL_AT and not put_value(r_, v)]
 print("шелк: номиналов %d (нет места: %s), обозначений не пристроено: %s"
       % (len(VALSILK) - len(_skip), _skip or "-", _bad or "-"))
 
+# --- земляные пады USB-C: полигон цеплял их одной перемычкой вместо двух.
+# Для экранируемого разъёма сплошное соединение и электрически лучше.
+for _p in b.fps["J1"].Pads():
+    if _p.GetNetname() == "GND":
+        _p.SetZoneConnection(pcbnew.ZONE_CONNECTION_FULL)
+
+# --- шелкография J1 выходит за контур платы (разъём намеренно свисает за край) - убираем
+_keep = []
+for _g in list(b.fps["J1"].GraphicalItems()):
+    if _g.GetLayer() != pcbnew.F_SilkS:
+        continue
+    r = _g.GetBoundingBox()
+    if tomm(r.GetRight()) > X1 - 0.25:
+        b.fps["J1"].Remove(_g)
+
 b.set_model("J1", "${KICAD6_3DMODEL_DIR}/Connector_USB.3dshapes/USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal.wrl")
 
 b.finish(os.path.join(OUT, NAME + ".kicad_pcb"))
+
+# KiCad создаёт .kicad_pro со своими значениями по умолчанию (зазор 0.2 мм).
+# Приводим правила проекта к тому, к чему плата реально разведена.
+_pro = os.path.join(OUT, NAME + ".kicad_pro")
+if os.path.exists(_pro):
+    _d = json.load(open(_pro))
+    for _c in _d.get("net_settings", {}).get("classes", []):
+        if _c.get("name") == "Default":
+            _c["clearance"] = 0.15
+    _d.setdefault("board", {}).setdefault("design_settings", {}).setdefault("rules", {})["min_clearance"] = 0.15
+    json.dump(_d, open(_pro, "w"), indent=2)
 json.dump({"hdrmap": {"%s.%s" % k: v for k, v in hdrmap.items()},
            "sides": sides, "pads": {str(k): v for k, v in pads.items()},
            "netof": {str(k): mcu_net(k) for k in pads}},
