@@ -1,0 +1,27 @@
+Qty,Value,Footprint,Designators,LCSC,Comment
+14,100nF,:C_0402_1005Metric,"C1,C10,C11,C2,C3,C4,C5,C6,C7,C70,C74,C77,C8,C9",,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+2,10pF,:C_0402_1005Metric,"C60,C61",,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+2,6.8pF,:C_0402_1005Metric,"C62,C63",,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,100nF,:C_0603_1608Metric,C52,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,1uF,:C_0603_1608Metric,C71,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+2,2.2uF,:C_0603_1608Metric,"C72,C73",,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+2,10uF,:C_0805_2012Metric,"C50,C51",,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+2,4.7uF,:C_0805_2012Metric,"C75,C76",,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,25MHz,:Crystal_SMD_5032-2Pin_5.0x3.2mm,Y1,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,32.768kHz,:Crystal_SMD_MicroCrystal_CC7V-T1A-2Pin_3.2x1.5mm,Y2,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,USER,:LED_0805_2012Metric,D1,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,STM32H723ZGT6,:LQFP-144_20x20mm_P0.5mm,U1,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+4,M2,:MountingHole_2.2mm_M2,"H1,H2,H3,H4",,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,SWD,:PinHeader_1x04_P2.54mm_Vertical,J6,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,PORT_B,:PinHeader_2x18_P2.54mm_Vertical,J3,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,PORT_L,:PinHeader_2x18_P2.54mm_Vertical,J2,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,PORT_R,:PinHeader_2x18_P2.54mm_Vertical,J4,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,PORT_T,:PinHeader_2x18_P2.54mm_Vertical,J5,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,0R/FB,:R_0402_1005Metric,R3,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,10k,:R_0402_1005Metric,R4,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,1k,:R_0402_1005Metric,R5,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+2,5.1k,:R_0402_1005Metric,"R1,R2",,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,AP2112K-3.3,:SOT-23-5,U2,C51118,
+1,BOOT0,:SW_SPST_SKQG_WithoutStem,SW2,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,RESET,:SW_SPST_SKQG_WithoutStem,SW1,,подобрать из JLCPCB Basic Parts по номиналу/типоразмеру
+1,USB-C,:USB_C_Receptacle_HRO_TYPE-C-31-M-12,J1,C165948,
