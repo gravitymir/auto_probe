@@ -1,5 +1,11 @@
-import pcbnew, math, sys
+import math, sys, os
 from collections import defaultdict
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import kicadenv
+
+kicadenv.quiet()
+import pcbnew
 b=pcbnew.LoadBoard(sys.argv[1]); tm=pcbnew.ToMM
 ALL={pcbnew.F_Cu,pcbnew.In1_Cu,pcbnew.In2_Cu,pcbnew.B_Cu}
 ZONE={z.GetNetname() for z in b.Zones()}

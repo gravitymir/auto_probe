@@ -1,8 +1,11 @@
 """Мини-генератор KiCad 7: символьная библиотека -> .kicad_sch, модель -> netlist."""
-import os, re, uuid, math
+import os, re, uuid, math, sys
 
-SYMDIR = "/usr/share/kicad/symbols"
-FPDIR = "/usr/share/kicad/footprints"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import kicadenv
+
+SYMDIR = kicadenv.SYMDIR
+FPDIR = kicadenv.FPDIR
 
 
 # ---------------------------------------------------------------- s-expr utils
@@ -139,11 +142,19 @@ class Symbol:
                 if m:
                     self.props[m.group(1)] = m.group(2)
         hdr = base[: base.index("(property")] if "(property" in base else base
-        self.pin_names = re.search(r"\(pin_names[^)]*\)[^)]*\)|\(pin_names [^)]*\)", hdr)
-        self.pin_numbers_hide = "(pin_numbers hide)" in hdr
-        m = re.search(r"\(pin_names \(offset ([-\d.]+)\)( hide)?\)", hdr)
+        # KiCad 7 пишет "(pin_names (offset 1.016) hide)", KiCad 10 - тот же блок
+        # в несколько строк с "(hide yes)". Разбираем сам блок, а не его написание:
+        # иначе имена выводов не прячутся и "Pin_2" ложится поверх номера.
+        def _hdr_block(key):
+            i = hdr.find("(%s" % key)
+            return block(hdr, i) if i >= 0 else ""
+
+        pn = _hdr_block("pin_names")
+        self.pin_names = pn
+        self.pin_numbers_hide = _hidden(_hdr_block("pin_numbers"))
+        m = re.search(r"\(offset ([-\d.]+)\)", pn)
         self.pn_offset = float(m.group(1)) if m else 0.508
-        self.pn_hide = bool(m and m.group(2))
+        self.pn_hide = _hidden(pn)
         self.pindict = {p.number: p for p in self.pins}
         self._bbox = None
 
@@ -184,6 +195,12 @@ class Symbol:
             out.append("      " + sub2)
         out.append("    )")
         return "\n".join(out)
+
+
+def _hidden(blk):
+    """Флаг hide внутри блока - в обоих написаниях, KiCad 7 и KiCad 10."""
+    return bool(blk) and (re.search(r"\(hide\s+yes\)", blk) is not None
+                          or re.search(r"\bhide\s*\)", blk) is not None)
 
 
 _symcache = {}

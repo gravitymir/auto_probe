@@ -1,8 +1,15 @@
 """Хелперы поверх pcbnew 7 для скриптовой сборки плат."""
 import math
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import kicadenv
+
+kicadenv.quiet()
 import pcbnew
 
-FPDIR = "/usr/share/kicad/footprints"
+FPDIR = kicadenv.FPDIR
 
 
 def mm(v):
@@ -75,6 +82,12 @@ class Builder:
             pass
         fp.Add3DModel(m)
 
+    @staticmethod
+    def pad_zone_connection(pad, mode):
+        """KiCad 10 переименовал PAD::SetZoneConnection в SetLocalZoneConnection."""
+        fn = getattr(pad, "SetLocalZoneConnection", None) or pad.SetZoneConnection
+        fn(mode)
+
     def pad(self, ref, num):
         for p in self.fps[ref].Pads():
             if p.GetNumber() == str(num):
@@ -99,6 +112,8 @@ class Builder:
     def track(self, netname, pts, layer=pcbnew.F_Cu, width=0.2):
         n = self.net(netname)
         for i in range(len(pts) - 1):
+            if pts[i] == pts[i + 1]:        # вырожденный отрезок KiCad считает ошибкой
+                continue
             t = pcbnew.PCB_TRACK(self.b)
             t.SetStart(V(*pts[i]))
             t.SetEnd(V(*pts[i + 1]))
@@ -218,6 +233,19 @@ class Builder:
         pcbnew.SaveBoard(path, self.b)
         if fill:
             fill_zones(path)
+
+
+def footprint_save(libdir, fp):
+    """Сохранить футпринт в .pretty рядом с проектом.
+
+    pcbnew.FootprintSave угадывает формат библиотеки по её содержимому, а каталог
+    у нас пустой - в KiCad 10 угадывание промахивается. Формат KiCad задаём явно.
+    """
+    mgr = getattr(pcbnew, "PCB_IO_MGR", None)
+    if mgr is not None:
+        mgr.FindPlugin(mgr.KICAD_SEXP).FootprintSave(libdir, fp)
+    else:
+        pcbnew.FootprintSave(libdir, fp)     # KiCad 7
 
 
 def fill_zones(path):

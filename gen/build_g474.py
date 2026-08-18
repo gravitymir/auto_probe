@@ -2,8 +2,10 @@
 """Генератор проекта KiCad: STM32G474RET6 core board (LQFP64), 70x70 мм, 4 слоя."""
 import os, sys, math, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import kicadenv
 import pcbnew
-from pcbhelp import Builder, mm, tomm, V
+import pcbhelp
+from pcbhelp import Builder, mm, tomm, V, FPDIR
 import kigen
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else "/home/claude/stm32boards/out/STM32G474RE-CoreBoard"
@@ -107,7 +109,7 @@ for i, pr in enumerate(PAIRS, 1):
 
 HN = 0
 for hx, hy in ((X0 + 3.0, Y0 + 3.0), (X0 + 3.0, Y1 - 3.0), (X1 - 3.5, Y1 - 3.5), (X1 - 3.5, Y0 + 3.5)):
-    fp = pcbnew.FootprintLoad("/usr/share/kicad/footprints/MountingHole.pretty", "MountingHole_2.2mm_M2")
+    fp = pcbnew.FootprintLoad(os.path.join(FPDIR, "MountingHole.pretty"), "MountingHole_2.2mm_M2")
     b.b.Add(fp)
     fp.SetPosition(pcbnew.VECTOR2I(mm(hx), mm(hy)))
     HN += 1
@@ -128,12 +130,14 @@ for s, ref in HSIDE.items():
                      {"J2": "PORT_L", "J3": "PORT_B", "J4": "PORT_R", "J5": "PORT_T"}[ref],
                      "%s:PinHeader_1x16_P2.54mm_Vertical" % HDRLIB, nets,
                      at=({"J2": 150, "J3": 185, "J4": 220, "J5": 255}[ref], 60)))
-d.add(kigen.Part("J1", "Connector:USB_C_Receptacle_USB2.0_16P", "USB-C",
+USBC_LIBID = "Connector:USB_C_Receptacle_USB2.0_16P"
+SHIELD = [p.number for p in kigen.get_symbol(USBC_LIBID).pins if p.name == "SHIELD"][0]  # S1 в KiCad 7, SH в KiCad 10
+d.add(kigen.Part("J1", USBC_LIBID, "USB-C",
                  "Connector_USB:USB_C_Receptacle_HRO_TYPE-C-31-M-12",
                  {"A1": "GND", "A12": "GND", "B1": "GND", "B12": "GND",
                   "A4": "VBUS", "A9": "VBUS", "B4": "VBUS", "B9": "VBUS",
                   "A5": "CC1", "B5": "CC2", "A6": "USB_DP", "B6": "USB_DP",
-                  "A7": "USB_DM", "B7": "USB_DM", "S1": "GND"}, at=(300, 60)))
+                  "A7": "USB_DM", "B7": "USB_DM", SHIELD: "GND"}, at=(300, 60)))
 d.add(kigen.Part("J6", "Connector_Generic:Conn_01x10", "DEBUG",
                  "%s:PinHeader_1x10_P2.54mm_Vertical" % HDRLIB,
                  {"1": "VBUS", "2": "GND", "3": "PB6", "4": "PB7", "5": "NRST",
@@ -486,7 +490,7 @@ MARGIN = 0.3
 def _bb(item):
     """Габарит элемента; для текста - габарит повёрнутой рамки самого текста."""
     if hasattr(item, "GetTextBox"):
-        tb = item.GetTextBox()
+        tb = kicadenv.textbox(item)
         p = item.GetPosition()
         w, h = tomm(tb.GetWidth()), tomm(tb.GetHeight())
         a = math.radians(item.GetTextAngleDegrees())
@@ -626,7 +630,10 @@ def _geom(ref):
     ang = fp.GetOrientationDegrees() % 180.0
     if ang > 90.0:
         ang -= 180.0
-    r = fp.GetBoundingBox(False, False)
+    try:
+        r = fp.GetBoundingBox(False, False)
+    except TypeError:
+        r = fp.GetBoundingBox(False)
     hw, hh = tomm(r.GetWidth()) / 2.0, tomm(r.GetHeight()) / 2.0
     cx = (tomm(r.GetLeft()) + tomm(r.GetRight())) / 2.0
     cy = (tomm(r.GetTop()) + tomm(r.GetBottom())) / 2.0
@@ -688,7 +695,7 @@ print("шелк: номиналов %d (нет места: %s), обозначе
 # Для экранируемого разъёма сплошное соединение и электрически лучше.
 for _p in b.fps["J1"].Pads():
     if _p.GetNetname() == "GND":
-        _p.SetZoneConnection(pcbnew.ZONE_CONNECTION_FULL)
+        b.pad_zone_connection(_p, pcbnew.ZONE_CONNECTION_FULL)
 
 # --- шелкография J1 выходит за контур платы (разъём намеренно свисает за край) - убираем
 _keep = []
@@ -715,14 +722,17 @@ _saved = set()
 for _fp in b.b.GetFootprints():
     _nm = str(_fp.GetFPID().GetLibItemName())
     if _nm not in _saved:
-        _c = _fp.Duplicate()
+        try:
+            _c = pcbnew.Cast_to_FOOTPRINT(_fp.Duplicate(False))   # KiCad 10: addToParentGroup
+        except TypeError:
+            _c = _fp.Duplicate()
         if _c.IsFlipped():
             _c.Flip(_c.GetPosition(), False)
         _c.SetPosition(pcbnew.VECTOR2I(0, 0))
         _c.SetOrientationDegrees(0)
         _c.SetReference("REF**")
         _c.SetValue(_nm)
-        pcbnew.FootprintSave(LIBDIR, _c)
+        pcbhelp.footprint_save(LIBDIR, _c)
         _saved.add(_nm)
     _fp.SetFPID(pcbnew.LIB_ID(FPLIB, _nm))
 print("библиотека проекта: %d футпринтов" % len(_saved))

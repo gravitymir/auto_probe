@@ -1,4 +1,10 @@
-import sys, math, itertools, pcbnew
+import sys, math, itertools, os
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import kicadenv
+
+kicadenv.quiet()
+import pcbnew
 tomm=pcbnew.ToMM
 def rect(cx,cy,w,h,ang):
     a=math.radians(-ang); ca,sa=math.cos(a),math.sin(a)
@@ -20,7 +26,7 @@ LAY=(pcbnew.F_SilkS,pcbnew.B_SilkS)
 texts={l:[] for l in LAY}; pads={l:[] for l in LAY}
 def addtxt(t,name):
     if t.GetLayer() not in LAY or not t.IsVisible(): return
-    bx=t.GetTextBox(); p=t.GetPosition()
+    bx=kicadenv.textbox(t); p=t.GetPosition()
     texts[t.GetLayer()].append((rect(tomm(p.x),tomm(p.y),tomm(bx.GetWidth()),tomm(bx.GetHeight()),
                                      t.GetTextAngleDegrees()), name))
 for fp in b.GetFootprints():

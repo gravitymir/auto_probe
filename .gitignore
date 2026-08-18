@@ -2,3 +2,7 @@
 *-backups/
 fp-info-cache
 _geom.json
+__pycache__/
+~*.lck
+.history/
+*-drc.rpt

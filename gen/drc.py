@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Геометрический DRC: зазоры между дорожками/via/падами разных цепей + несоединённые цепи."""
-import sys, math
+import sys, math, os
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import kicadenv
+
+kicadenv.quiet()
 import pcbnew
 
 CLR = 0.2
@@ -91,7 +96,7 @@ def run(path, limit=60, clr=CLR):
             if not (i.lay & j.lay):
                 continue
             dd = seg_dist(i.a, i.bb, j.a, j.bb) - i.hw - j.hw
-            if dd < clr:
+            if dd < clr - 1e-6:      # ровно по правилу - не нарушение (KiCad считает в нм)
                 errs.append((round(dd, 3), "%s(%s)[%.1f,%.1f-%.1f,%.1f] <-> %s(%s)[%.1f,%.1f]"
                              % (i.lbl, i.nm or "-", i.a[0], i.a[1], i.bb[0], i.bb[1],
                                 j.lbl, j.nm or "-", j.a[0], j.a[1])))

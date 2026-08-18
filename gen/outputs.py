@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """BOM + карта выводов гребёнок из готовой платы."""
-import sys, os, csv, json
+import sys, os, csv, json, re
 from collections import defaultdict
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import kicadenv
+
+kicadenv.quiet()
 import pcbnew
 
 path = sys.argv[1]
@@ -26,9 +31,17 @@ LCSC = {
 with open(os.path.join(out, "BOM.csv"), "w", newline="") as f:
     w = csv.writer(f)
     w.writerow(["Qty", "Value", "Footprint", "Designators", "LCSC", "Comment"])
+    # Пассивку берут по номиналу и типоразмеру, а активной детали нужен конкретный
+    # номер - советовать для неё "подобрать по номиналу" бессмысленно.
+    passive = re.compile(r"^[\d.]+\s*(?:[pnuµmk]?[FRH]|R|k|M|Ohm)\b|^0R$|^LED$", re.I)
     for (val, fid), refs in sorted(rows.items(), key=lambda kv: (kv[0][1], kv[0][0])):
         code = LCSC.get(val, "")
-        note = "" if code else "подобрать из JLCPCB Basic Parts по номиналу/типоразмеру"
+        if code:
+            note = ""
+        elif passive.match(val):
+            note = "подобрать из JLCPCB Basic Parts по номиналу/типоразмеру"
+        else:
+            note = "уточнить номер LCSC под конкретную деталь"
         w.writerow([len(refs), val, fid, ",".join(sorted(refs)), code, note])
 
 geom = os.path.join(out, "_geom.json")
