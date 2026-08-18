@@ -13,7 +13,6 @@ Qty,Value,Footprint,Designators,LCSC,Comment
 1,STM32H723ZGT6,auto_probe:LQFP-144_20x20mm_P0.5mm,U1,,уточнить номер LCSC под конкретную деталь
 4,M2,auto_probe:MountingHole_2.2mm_M2,"H1,H2,H3,H4",,уточнить номер LCSC под конкретную деталь
 1,DEBUG,auto_probe:PinHeader_1x10_P2.54mm_Vertical,J6,,уточнить номер LCSC под конкретную деталь
-1,STDC14,auto_probe:PinHeader_2x07_P1.27mm_Vertical,J7,,уточнить номер LCSC под конкретную деталь
 1,PORT_B,auto_probe:PinHeader_2x18_P2.54mm_Vertical,J3,,уточнить номер LCSC под конкретную деталь
 1,PORT_L,auto_probe:PinHeader_2x18_P2.54mm_Vertical,J2,,уточнить номер LCSC под конкретную деталь
 1,PORT_R,auto_probe:PinHeader_2x18_P2.54mm_Vertical,J4,,уточнить номер LCSC под конкретную деталь

@@ -41,9 +41,17 @@ for fp in b.GetFootprints():
                                  fp.GetReference()+'.'+p.GetNumber()))
 for d in b.GetDrawings():
     if d.GetClass()=='PCB_TEXT': addtxt(d, '"%s"'%d.GetText())
+# Контур платы: шелк за ним при печати обрезается.
+bb=b.GetBoardEdgesBoundingBox()
+BX0,BY0=tomm(bb.GetLeft()),tomm(bb.GetTop())
+BX1,BY1=tomm(bb.GetRight()),tomm(bb.GetBottom())
 THR=float(sys.argv[2]) if len(sys.argv)>2 else 0.0
-ov=[];op=[]
+ov=[];op=[];oe=[]
 for l in LAY:
+    for (A,na) in texts[l]:
+        xs=[q[0] for q in A]; ys=[q[1] for q in A]
+        m=min(min(xs)-BX0, BX1-max(xs), min(ys)-BY0, BY1-max(ys))
+        if m<0: oe.append((round(-m,2),na,'контур'))
     for (A,na),(B,nb) in itertools.combinations(texts[l],2):
         d=sat(A,B)
         if d>THR: ov.append((round(d,2),na,nb))
@@ -51,9 +59,11 @@ for l in LAY:
         for (B,nb) in pads[l]:
             d=sat(A,B)
             if d>THR: op.append((round(d,2),na,nb))
-print('надписей: %d | наложений текст-текст: %d | текст поверх пада: %d'
-      % (sum(len(texts[l]) for l in LAY), len(ov), len(op)))
+print('надписей: %d | текст-текст: %d | поверх пада: %d | за контуром платы: %d'
+      % (sum(len(texts[l]) for l in LAY), len(ov), len(op), len(oe)))
 ov.sort(reverse=True)
 op.sort(reverse=True)
+oe.sort(reverse=True)
 for x in ov: print('   TT %5.2f мм  %s <-> %s' % x)
 for x in op: print('   TP %5.2f мм  %s <-> %s' % x)
+for x in oe: print('   TE %5.2f мм  %s за %s платы' % x)

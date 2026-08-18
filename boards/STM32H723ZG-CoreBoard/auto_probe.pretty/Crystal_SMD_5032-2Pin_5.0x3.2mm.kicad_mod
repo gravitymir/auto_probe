@@ -5,9 +5,9 @@
 	(layer "F.Cu")
 	(descr "SMD2520/2, Crystal, 5.0x3.2mm package, SMD, http://www.icbase.com/File/PDF/HKC/HKC00061008.pdf")
 	(property "Reference" "REF**"
-		(at -4.520001 0 180)
+		(at -4.520001 0 90)
 		(layer "F.SilkS")
-		(uuid "bb48d575-6655-49df-8e55-8f1760b1e627")
+		(uuid "2d346448-d076-45a0-8c3d-81942a7715d9")
 		(effects
 			(font
 				(size 0.8 0.8)
@@ -19,7 +19,7 @@
 		(at 0 2.8 180)
 		(layer "F.Fab")
 		(hide yes)
-		(uuid "6b339150-c352-4613-9054-de2b8a1f57a6")
+		(uuid "145b5e88-88be-4d6d-92ee-b962032bf052")
 		(effects
 			(font
 				(size 1 1)
@@ -31,7 +31,7 @@
 		(at 0 0 180)
 		(layer "F.Fab")
 		(hide yes)
-		(uuid "d86fe52f-52f9-4a46-978c-a82d06389f2d")
+		(uuid "64025033-e932-4275-90ff-4ae78ecff870")
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -42,7 +42,7 @@
 		(at 0 0 180)
 		(layer "F.Fab")
 		(hide yes)
-		(uuid "ec3d6090-0bfd-48a7-9b10-e301a43109bf")
+		(uuid "63c0b81b-dc72-4635-bd87-9ba62c5fb8e0")
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -53,7 +53,7 @@
 		(at 0 0 180)
 		(layer "F.SilkS")
 		(hide yes)
-		(uuid "8bb6e596-bd58-4e8b-9424-ddbe3df5581d")
+		(uuid "a11803cc-7ae9-4e2b-887e-249402797d66")
 		(effects
 			(font
 				(size 1 1)
@@ -71,7 +71,7 @@
 			(type solid)
 		)
 		(layer "F.SilkS")
-		(uuid "22cc1e1e-430b-49ed-a26d-7adf2acfa3a7")
+		(uuid "3edf9e94-f050-47a4-8876-5db6c083c775")
 	)
 	(fp_line
 		(start -3.11 1.86)
@@ -81,7 +81,7 @@
 			(type solid)
 		)
 		(layer "F.SilkS")
-		(uuid "b5536f3e-1169-4b9e-954d-51d5237b2422")
+		(uuid "1d3a9ae4-68e0-43e5-b528-aeaaa44df601")
 	)
 	(fp_line
 		(start 2.76 -1.86)
@@ -91,7 +91,7 @@
 			(type solid)
 		)
 		(layer "F.SilkS")
-		(uuid "504e621f-5526-4808-940a-63ebd943ba49")
+		(uuid "51071079-c1bf-4349-85a1-bf63a8178567")
 	)
 	(fp_circle
 		(center 0 0)
@@ -102,7 +102,7 @@
 		)
 		(fill yes)
 		(layer "F.Adhes")
-		(uuid "cedd23aa-67b6-4c4b-a2b6-0571b5f391ac")
+		(uuid "6ceae6bb-27f1-42c2-9496-03811a6c8203")
 	)
 	(fp_rect
 		(start -3.1 -2.1)
@@ -113,7 +113,7 @@
 		)
 		(fill no)
 		(layer "F.CrtYd")
-		(uuid "f4f1876c-e5cf-4040-bb40-13aaa00a51d7")
+		(uuid "d5057dc8-188f-4155-80b4-cd9842cb08e7")
 	)
 	(fp_poly
 		(pts
@@ -125,12 +125,12 @@
 		)
 		(fill no)
 		(layer "F.Fab")
-		(uuid "a6ae2d7a-16a5-4611-9f05-3103f4615ff7")
+		(uuid "3cbcc18d-5af8-4df5-9c08-eae92bd1b409")
 	)
 	(fp_text user "${REFERENCE}"
 		(at 0 0 180)
 		(layer "F.Fab")
-		(uuid "1d53d788-1093-4c73-ab72-c25eb7b8b183")
+		(uuid "4cdcb365-8b37-4c68-a970-23d6948550b1")
 		(effects
 			(font
 				(size 1 1)
@@ -143,14 +143,14 @@
 		(size 2 2.4)
 		(layers "F.Cu" "F.Mask" "F.Paste")
 		(roundrect_rratio 0.125)
-		(uuid "1c9560cd-a9bf-4843-9e87-0d12ccd03b1d")
+		(uuid "c26b616f-3eb0-4555-af6d-12f9ed10b9a3")
 	)
 	(pad "2" smd roundrect
 		(at 1.85 0)
 		(size 2 2.4)
 		(layers "F.Cu" "F.Mask" "F.Paste")
 		(roundrect_rratio 0.125)
-		(uuid "2d846f1b-7e15-457b-affc-2e47644a861a")
+		(uuid "08928233-3b2f-43ec-8610-ab6ae3b28772")
 	)
 	(embedded_fonts no)
 	(model "${KICAD10_3DMODEL_DIR}/Crystal.3dshapes/Crystal_SMD_5032-2Pin_5.0x3.2mm.step"

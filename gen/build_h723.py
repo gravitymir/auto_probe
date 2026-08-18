@@ -120,23 +120,12 @@ b.place("SW1", "Button_Switch_SMD", "SW_SPST_SKQG_WithoutStem", X0 + 7.0, TOPY +
 b.place("SW2", "Button_Switch_SMD", "SW_SPST_SKQG_WithoutStem", X0 + 10.5, TOPY, 0, value="BOOT0")
 b.place("R4", R0402[0], R0402[1], X0 + 5.2, TOPY, 180, value="10k")        # вплотную к SW2:
 # западнее дорожка BOOT0 пересекла бы спуск SWO на верхнюю гребёнку
-JY = Y0 + 11.4                             # ряд разъёма прошивки: подписи ушли под
+JY = Y0 + 5.2                              # ряд разъёма прошивки: подписи ушли под
                                            # него, сверху остались только полосы SWO/NRST
 # Разъём развёрнут: 5V у восточного края, ближе к USB. Положение задано так, чтобы
 # контакт SWO встал ровно над своим падом на J5 - тогда отвод к PB3 идёт по прямой.
 JX = hdrof[SWO]["x"] + 5 * 2.54             # контакт 1 - восточный край разъёма
 b.place("J6", HDRLIB, "PinHeader_1x10_P2.54mm_Vertical", JX, JY, 270, value="DEBUG")
-# STDC14 (2x7, 1.27 мм) - штатный разъём ST-LINK V3. Стоит под J6 сигнальным рядом
-# к нему: после переворота J6 порядок сигналов у обоих совпал, и веер идёт без
-# пересечений. Распиновка по UM ST: 3 T_VCC, 4 SWDIO, 5 GND, 6 SWCLK, 7 GND,
-# 8 SWO, 11 GNDDETECT, 12 NRST; 1, 2, 9, 10 служебные, 13/14 - VCP UART.
-# Разъём стоит вертикально, сигнальный (чётный) ряд обращён к J6, ряд GND/VCC -
-# наружу. Контакты сигналов идут в обратном порядке относительно своих целей на
-# J6, поэтому веер расходится по слоям, а не по глубине полос.
-J7X, J7Y = JX + 4.7, JY - 1.2               # восточнее J6; выше не поднять -
-                                            # верхние пады упрутся в полосы CLK/DIO
-b.place("J7", "Connector_PinHeader_1.27mm", "PinHeader_2x07_P1.27mm_Vertical",
-        J7X, J7Y, 180, value="STDC14")
 b.place("U2", "Package_TO_SOT_SMD", "SOT-23-5", X1 - 5.0, UCY + 14.0, 0, back=True, value="AP2112K-3.3")
 b.place("C50", C0805[0], C0805[1], X1 - 5.0, UCY + 18.0, 0, back=True, value="10uF")
 b.place("C51", C0805[0], C0805[1], X1 - 5.0, UCY + 21.5, 0, back=True, value="10uF")
@@ -177,6 +166,9 @@ for hx, hy in ((X0 + 3.5, Y0 + 3.5), (X0 + 3.5, Y1 - 3.5), (X1 - 3.5, Y1 - 3.5),
     fp.SetValue("M2")
     fp.Reference().SetVisible(False)
     fp.Value().SetVisible(False)
+    # В библиотеке футпринт помечен "не в BOM", а символ в схеме - обычный:
+    # KiCad считает это расхождением. Крепёж в BOM нужен, снимаем пометку.
+    fp.SetExcludedFromBOM(False)
 
 # -------------------------------------------------------------------- схема
 # Лист A1: символ МК один занимает 76x188 мм, плюс четыре гребёнки 2x18 и 26
@@ -210,10 +202,9 @@ d.add(kigen.Part("J6", "Connector_Generic:Conn_01x10", "DEBUG",
                  {"1": "VBUS", "2": "GND", "3": mcu_net(UTX), "4": mcu_net(URX), "5": "NRST",
                   "6": mcu_net(SWO), "7": "GND", "8": "SWCLK", "9": "SWDIO", "10": "+3V3"},
                  at=(340, 270)))
-d.add(kigen.Part("J7", "Connector_Generic:Conn_02x07_Odd_Even", "STDC14",
-                 "Connector_PinHeader_1.27mm:PinHeader_2x07_P1.27mm_Vertical",
-                 {"3": "+3V3", "4": "SWDIO", "5": "GND", "6": "SWCLK", "7": "GND",
-                  "8": mcu_net(SWO), "11": "GND", "12": "NRST"}, at=(440, 200)))
+for _h in range(1, 5):
+    d.add(kigen.Part("H%d" % _h, "Mechanical:MountingHole", "M2",
+                     "auto_probe:MountingHole_2.2mm_M2", {}, at=(500, 100 + _h * 30)))
 d.add(kigen.Part("U2", "Regulator_Linear:AP2112K-3.3", "AP2112K-3.3", "Package_TO_SOT_SMD:SOT-23-5",
                  {"1": "VBUS", "2": "GND", "3": "VBUS", "5": "+3V3"}, at=(440, 270)))
 d.add(kigen.Part("Y1", "Device:Crystal", "25MHz", "Crystal:Crystal_SMD_5032-2Pin_5.0x3.2mm",
@@ -249,7 +240,7 @@ for i, ref in enumerate(sorted(CAPNET, key=lambda r: int(r[1:]))):
                      at=grid_at(i)))
 NCAP = len(CAPNET)                          # резисторы и флаги продолжают ту же сетку
 RES = {"R1": ("5.1k", ("CC1", "GND")), "R2": ("5.1k", ("CC2", "GND")),
-       "R3": ("0R", ("+3V3", "+3V3A")), "R4": ("10k", ("BOOT0", "GND")),
+       "R3": ("0R/FB", ("+3V3", "+3V3A")), "R4": ("10k", ("BOOT0", "GND")),
        "R5": ("1k", ("LED_K", "GND"))}
 for i, ref in enumerate(sorted(RES)):
     val, (a, k) = RES[ref]
@@ -263,6 +254,7 @@ for _pt in d.parts:
     if ":" in _pt.footprint:
         _pt.footprint = "auto_probe:" + _pt.footprint.split(":", 1)[1]
 d.write_sch(os.path.join(OUT, NAME + ".kicad_sch"))
+SCH = d                                     # дальше имя d занимают локальные циклы
 for p in d.parts:
     if p.ref.startswith("#"):
         continue
@@ -338,13 +330,25 @@ GRID = [(-4.8, -4.8), (-1.6, -4.8), (1.6, -4.8),
         (-4.8, -1.6), (-1.6, -1.6), (1.6, -1.6), (4.8, -1.6),
         (-4.8, 1.6), (-1.6, 1.6), (1.6, 1.6), (4.8, 1.6),
         (-4.8, 4.8), (-1.6, 4.8)]
+# Место в сетке каждому конденсатору достаётся ближайшее к его собственному
+# выводу, а не по порядку: иначе банка с одной стороны корпуса разряжает вывод
+# с противоположной. Мест 13, конденсаторов 12 - сюда же уходит и VDD33USB.
 V3 = {}
-for i in range(1, len(VDDP) + 1):
-    dx, dy = GRID[i - 1]
-    fp = b.fps["C%d" % i]
+CAPPIN = {"C%d" % i: n for i, n in enumerate(VDDP, 1)}
+CAPPIN["C74"] = [n for n in pads if RAWNAME[n] == "VDD33USB"][0]
+_pairs = sorted((math.hypot(padpt(n)[0] - (CX + dx), padpt(n)[1] - (CY + dy)), ref, k)
+                for ref, n in CAPPIN.items() for k, (dx, dy) in enumerate(GRID))
+_ur, _uk = set(), set()
+for _d, ref, k in _pairs:
+    if ref in _ur or k in _uk:
+        continue
+    _ur.add(ref); _uk.add(k)
+    dx, dy = GRID[k]
+    fp = b.fps[ref]
     fp.SetPosition(pcbnew.VECTOR2I(mm(CX + dx), mm(CY + dy)))
     fp.SetOrientationDegrees(0)
-    V3["C%d" % i] = stub("C%d" % i, 1, "+3V3", 1.25)
+    # в нижнем ряду сетки via уводим внутрь: снаружи вплотную идут via земли
+    V3[ref] = stub(ref, 1, "+3V3", 1.25, sgn=(-1.0 if dy > 4.0 else None))
 
 # --- кварцы: веер до via перед внутренним рядом
 XV = {}
@@ -451,7 +455,7 @@ CH = r3a[0] + 1.5
 for a_, c_ in ((r3a, b.padxy("C70", 1)), (b.padxy("C70", 1), b.padxy("C71", 1))):
     b.track("+3V3A", [a_, (CH, a_[1]), (CH, c_[1]), c_], BCU, W)
 stub("R3", 1, "+3V3", 1.6, sgn=-1.0)
-for r in ("C74", "C75", "C76"):
+for r in ("C75", "C76"):                    # C74 уже пристроен к своему выводу
     stub(r, 1, "+3V3", 1.4)
 
 # --- USB-C
@@ -514,7 +518,10 @@ j = lambda n: b.padxy("J6", n)
 # 5V спускается ниже подписей разъёма: вплотную под падами до них оставалось
 # 0.275 мм при норме 0.2 - по правилам проходит, но слишком впритык.
 LN5V, LNCLK = JY + 4.20, JY + 1.80          # полосы под разъёмом (F.Cu / B.Cu)
-LNSWO, LNRST = Y0 + 1.40, Y0 + 2.10         # полосы над разъёмом, вдоль верхнего края
+# Полосы над разъёмом. К контуру их прижимало прежнее положение J6; после того
+# как разъём поднялся, между ним и полосами освободилось место - отводим их от
+# края, чтобы медь не шла в миллиметре от фрезы.
+LNSWO, LNRST = Y0 + 2.40, Y0 + 3.10         # полосы над разъёмом, вдоль верхнего края
 # Обход углового крепёжного отверстия: спускаемся ровно по оси SW2 (там просвет
 # между двумя keepout под её корпусом) и уходим на запад уже ниже кнопки.
 NDOG, NDOGY = X0 + 11.0, Y0 + 11.0
@@ -573,44 +580,8 @@ b.track("NRST", [j(5), (j(5)[0], LNRST), (NDOG, LNRST), (NDOG, NDOGY),
                  (LANE_N, NDOGY), (LANE_N, NRSTY)], BCU, W)
 # +3V3 у западного торца J6: отвод строго на север - на западе спускается BOOT0.
 _j10 = b.padxy("J6", 10)
-b.track("+3V3", [_j10, (_j10[0], _j10[1] - 1.8)], FCU, W)
-b.via("+3V3", _j10[0], _j10[1] - 1.8, dia=0.6, drill=0.3)
-
-# --- STDC14: сигналы идут вверх к одноимённым контактам J6. Порядок совпадает,
-# поэтому веер раскрывается без пересечений; полосы разнесены по глубине.
-# Веер STDC14. Каждый сигнал идёт на запад по строке своего пада - пересекаться
-# между собой строкам негде. Разводим по слоям: считаться приходится с уже
-# проложенными спусками от J6 (NRST низом, SWCLK и SWDIO верхом).
-def j7row(pin, xt, layer):
-    """Пад STDC14 -> прямо на запад до цели xt по строке пада."""
-    px, py = b.padxy("J7", pin)
-    net = b.fps["J7"].FindPadByNumber(str(pin)).GetNetname()
-    b.track(net, [(px, py), (xt, py)], layer, W)
-    return py
-
-
-# NRST - самая северная строка и самая восточная цель: до своего спуска (низ)
-# ей никто не мешает.
-j7row(12, j(5)[0], BCU)
-# SWCLK садится на свой спуск (верх); спуск NRST она пересекает по другому слою.
-j7row(6, j(8)[0], FCU)
-# У SWO спуска наверх нет - доводим до пада J6 сами, низом: поверху дорожка
-# пересекла бы строку SWCLK.
-_y8 = j7row(8, j(6)[0], FCU)
-b.via(mcu_net(SWO), j(6)[0], _y8, dia=0.45, drill=0.25)
-b.track(mcu_net(SWO), [(j(6)[0], _y8), (j(6)[0], JY)], BCU, W)
-# SWDIO - самая западная цель: её строке мешают и спуск NRST (низ), и спуск
-# SWCLK (верх). Меняем слой в промежутке между ними.
-XH = (j(6)[0] + j(8)[0]) / 2 + 0.35         # между спусками SWO и SWCLK
-_y4 = j7row(4, XH, FCU)
-b.via("SWDIO", XH, _y4, dia=0.45, drill=0.25)
-b.track("SWDIO", [(XH, _y4), (j(9)[0], _y4)], BCU, W)
-b.via("SWDIO", j(9)[0], _y4, dia=0.45, drill=0.25)
-# У этого разъёма пады густые, автоотвод stub() упирается в соседний - уводим
-# питание на юг, в сторону от корпуса.
-_p3 = b.padxy("J7", 3)
-b.track("+3V3", [_p3, (_p3[0] + 1.7, _p3[1])], FCU, W)
-b.via("+3V3", _p3[0] + 1.7, _p3[1], dia=0.45, drill=0.25)
+b.track("+3V3", [_j10, (_j10[0], _j10[1] - 1.2)], FCU, W)   # короче: выше полоса NRST
+b.via("+3V3", _j10[0], _j10[1] - 1.2, dia=0.6, drill=0.3)
 
 # --- кнопки / светодиод
 # Два пада с одним номером соединяем в обход корпуса кнопки: под ним у футпринта
@@ -698,29 +669,44 @@ b.zone("GND", BCU, BCX, BCY, BW - 0.8, BH - 0.8)
 # у них USB-C с брендингом и кнопки с разъёмом прошивки.
 # У J2 и J3 кольца снаружи свободны: внешний ряд подписан снаружи платы, внутренний -
 # изнутри гребёнки, по одной строке с каждой стороны.
-LBL_ONE = {("L", 0): (3.0, 0.0, 0), ("L", 1): (-3.5, 0.0, 0),
-           ("B", 0): (0.0, -3.0, 90), ("B", 1): (0.0, 3.5, 90)}
+# J5 туда же: разъём прошивки ушёл к верхнему краю и освободил кольцо над ней,
+# так что внешний ряд теперь подписывается сверху, а не второй строкой снизу.
+# Минимум JLCPCB для шелкографии - высота 0.8 мм и линия 0.15 мм;
+# мельче символы при печати плывут.
+LBLSZ, LBLTH = 0.8, 0.15
+# В кольце между гребёнкой и краем платы на шелк остаётся 3.7 мм - пятизначное
+# имя шрифтом 0.8 мм туда уже не входит. Для таких на шелке короткая форма;
+# в цепях, схеме и PINOUT.csv имена остаются полными.
+SILKNAME = {"+3V3A": "3V3A", "PC2_C": "PC2C", "PC3_C": "PC3C",
+            "USB_DP": "USBDP", "USB_DM": "USBDM"}
+lbl_txt = lambda mn: "NC" if mn in NO_HEADER else SILKNAME.get(mcu_net(mn), mcu_net(mn))
+# Внутренние строки отодвинуты так, чтобы шрифт 0.8 мм не задевал контур
+# гребёнки на шелке; внешние - по центру кольца между гребёнкой и краем платы,
+# иначе длинные имена свешиваются за контур и обрезаются при печати.
+LBL_ONE = {("L", 0): (3.9, 0.0, 0), ("L", 1): (-3.2, 0.0, 0),
+           ("B", 0): (0.0, -3.9, 90), ("B", 1): (0.0, 3.2, 90),
+           ("T", 0): (0.0, 3.9, 90), ("T", 1): (0.0, -3.5, 90)}
 HDRLBL = []                                 # (надпись, вывод МК)
 for mn, h in hdrof.items():
     off = LBL_ONE.get((h["side"], h["row"]))
     if off is not None:
         dx, dy, rot = off
-        HDRLBL.append((b.text("NC" if mn in NO_HEADER else mcu_net(mn), h["x"] + dx, h["y"] + dy,
-                              pcbnew.F_SilkS, 0.6, 0.1, rot), mn))
+        HDRLBL.append((b.text(lbl_txt(mn), h["x"] + dx, h["y"] + dy,
+                              pcbnew.F_SilkS, LBLSZ, LBLTH, rot), mn))
 
 # У J4 и J5 снаружи стоят USB-C с брендингом и кнопки с разъёмом прошивки, поэтому обе
 # строки уходят внутрь. Вторую отодвигаем не на глаз, а на фактическую ширину первой:
 # имена разной длины (USB_DP против GND), подобранный вручную зазор где-нибудь не сойдётся.
-LBL_DIR = {"R": -1.0, "T": 1.0}             # куда растут строки от гребёнки
+LBL_DIR = {"R": -1.0}                       # куда растут строки от гребёнки
 LBL_GAP = 0.5
 
 
 def lbl_put(mn, coord):
     h = hdrof[mn]
     horiz = h["side"] in ("L", "R")
-    t = b.text("NC" if mn in NO_HEADER else mcu_net(mn),
+    t = b.text(lbl_txt(mn),
                coord if horiz else h["x"], h["y"] if horiz else coord,
-               pcbnew.F_SilkS, 0.6, 0.1, 0 if horiz else 90)
+               pcbnew.F_SilkS, LBLSZ, LBLTH, 0 if horiz else 90)
     HDRLBL.append((t, mn))
     return t
 
@@ -784,12 +770,12 @@ def lbl_edge(ts, d, horiz, near):
     return min(vals) if (d > 0) == near else max(vals)
 
 
-for s_ in ("T", "R"):                        # J5 первой: в углу её подписи главнее
+for s_ in ("R",):                            # двумя строками внутрь осталась только J4
     d = LBL_DIR[s_]
     horiz = s_ == "R"
     pins = [mn for mn in hdrof if hdrof[mn]["side"] == s_]
     ix, iy = hdrof[pins[0]]["inner"]
-    line1 = (ix if horiz else iy) + d * 3.0  # ближний ряд для J4/J5 - внутренний
+    line1 = (ix if horiz else iy) + d * 3.6  # ближний ряд для J4/J5 - внутренний
     t1 = [lbl_put(mn, line1) for mn in pins if hdrof[mn]["row"] == 0]
     p2 = [(lbl_put(mn, line1), mn) for mn in pins if hdrof[mn]["row"] == 1]
     t2 = [t for t, _ in p2]
@@ -836,10 +822,10 @@ _kept, _out, _drop = [], [], []
 for t, mn in HDRLBL:
     if _clashes(lbl_box(t), _kept):
         lbl_move_out(t, mn)
-        _out.append(t.GetText())
+        _out.append("%s@%s%d" % (t.GetText(), hdrof[mn]["side"], mn))
         if _clashes(lbl_box(t), _kept):
             _out.pop()
-            _drop.append(t.GetText())
+            _drop.append("%s@%s%d" % (t.GetText(), hdrof[mn]["side"], mn))
             b.b.Remove(t)
             continue
     _kept.append(lbl_box(t))
@@ -852,9 +838,10 @@ for pin, lbl in DBGLBL.items():             # подписи под разъём
     b.text(lbl, px, py + 2.8, pcbnew.F_SilkS, 0.8, 0.15, 90)
 
 # --- подписи кнопок, название и брендинг - как на G474
-b.text("RST", tomm(b.fps["SW1"].GetPosition().x) - 5.6, tomm(b.fps["SW1"].GetPosition().y),
-       pcbnew.F_SilkS, 1.6, 0.28, 90)
-b.text("BOOT", tomm(b.fps["SW2"].GetPosition().x), TOPY - 4.6, pcbnew.F_SilkS, 1.6, 0.28, 0)
+# RST зажат между падами кнопки и краем платы: 1.6 мм туда уже не входит.
+b.text("RST", tomm(b.fps["SW1"].GetPosition().x) - 5.45, tomm(b.fps["SW1"].GetPosition().y),
+       pcbnew.F_SilkS, 1.5, 0.26, 90)
+b.text("BOOT", tomm(b.fps["SW2"].GetPosition().x), TOPY - 4.6, pcbnew.F_SilkS, 1.5, 0.26, 0)
 b.text("STM32H723ZGT6 CORE BOARD", CX, CY + 16.4, pcbnew.F_SilkS, 1.6, 0.28)
 b.text("ASTechLab", X1 - 6.6, CY + 18.0, pcbnew.F_SilkS, 3.0, 1.0, 90)
 b.text("84x84 mm | 4 layer | rev.A", X1 - 1.9, CY + 18.0, pcbnew.F_SilkS, 1.0, 0.18, 90)
@@ -868,16 +855,15 @@ MARGIN = 0.3
 # над рядом, где она мешалась разъёму прошивки.
 _J5X = max(h["x"] for h in hdrof.values() if h["side"] == "T") + 3.4
 _J2Y = min(h["y"] for h in hdrof.values() if h["side"] == "L") - 3.4
-# Светодиод с резистором стоят по диагонали, и автоподбор разносил их надписи так,
-# что номинал одного оказывался у другого. Закрепляем: номиналы с северо-восточной
-# стороны пары, обозначения с юго-западной, все вдоль самих деталей.
+# Светодиод с резистором стоят по диагонали, и автоподбор разносил их обозначения
+# так, что подпись одного оказывалась у другого. Закрепляем их вдоль самих деталей.
 _XY = lambda r: (tomm(b.fps[r].GetPosition().x), tomm(b.fps[r].GetPosition().y))
 _NE, _SW = (0.7071, -0.7071), (-0.7071, 0.7071)
 _off = lambda r, d, k: (_XY(r)[0] + d[0] * k, _XY(r)[1] + d[1] * k, -45)
 REF_AT = {"J5": (_J5X, (CY - HDI + CY - HDO) / 2, 0),
+          "J6": (JX + 3.4, JY, 0),                 # в торец разъёма справа
           "J2": (CX - (HDI + HDO) / 2, _J2Y, 0),   # наверх: снизу теперь светодиод
           "R5": _off("R5", _SW, 2.4), "D1": _off("D1", _SW, 2.2)}
-VAL_AT = {"R5": _off("R5", _NE, 2.2), "D1": _off("D1", _NE, 2.6)}
 
 
 def _bb(item):
@@ -898,9 +884,12 @@ def _bb(item):
 def _occupied():
     occ = {l: [] for l in SILK}
     for fp in b.b.GetFootprints():
-        for t in (fp.Reference(), fp.Value()):
-            if t.IsVisible() and t.GetLayer() in occ:
-                occ[t.GetLayer()].append(_bb(t))
+        # Обозначения не считаем занятыми: их штатное место в футпринте - как раз
+        # над деталью, и подпись конфликтовала сама с собой, уезжая куда попало.
+        # Все они переставляются ниже, каждое занимает место в момент установки.
+        t = fp.Value()
+        if t.IsVisible() and t.GetLayer() in occ:
+            occ[t.GetLayer()].append(_bb(t))
         for g in fp.GraphicalItems():
             if g.GetLayer() in occ:
                 occ[g.GetLayer()].append(_bb(g))
@@ -940,7 +929,7 @@ def _try(t, cx, cy, ang, hw, hh, lay):
     """Подобрать свободное место для надписи вокруг габарита детали."""
     steps = ((0, -1), (0, 1), (-1, 0), (1, 0), (1, -1), (-1, -1), (1, 1), (-1, 1))
     for dd in (0.75, 1.35, 2.0, 2.8, 3.7, 4.8, 6.0):
-        for a_ in (ang, 0.0, 90.0):
+        for a_ in (0.0, ang, 90.0):     # горизонтальный текст читается легче
             for su, sv in steps:
                 px = cx + su * (hw + dd)
                 py = cy + sv * (hh + dd)
@@ -985,47 +974,52 @@ def fix_ref(ref, size=0.8, thick=0.15):
         t.SetPosition(pcbnew.VECTOR2I(mm(x_), mm(y_)))
         OCC[lay].append(_bb(t))
         return True
-    t.SetTextAngleDegrees(ang)
+    # Обозначение ставим всегда одинаково: строго над деталью, текст горизонтальный.
+    # Штатное место из футпринта поворачивается вместе с корпусом, и на плате
+    # получалась россыпь подписей под разными углами - непонятно, где чья.
+    t.SetTextAngleDegrees(0.0)
+    t.SetPosition(pcbnew.VECTOR2I(mm(cx), mm(cy - hh - 0.95)))
     box = _bb(t)
-    if not _clash(box, OCC[lay]):
+    if (box[0] > X0 + 0.6 and box[2] < X1 - 0.6 and box[1] > Y0 + 0.6 and box[3] < Y1 - 0.6
+            and not _clash(box, OCC[lay])):
         OCC[lay].append(box)
         return True
     return _try(t, cx, cy, ang, hw, hh, lay)
 
 
-def put_value(ref, s, size=0.8, thick=0.15):
-    """Номинал рядом с деталью, по возможности вдоль её корпуса."""
-    fp, back, lay, ang, hw, hh, cx, cy = _geom(ref)
-    if ref in VAL_AT:
-        x_, y_, a_ = VAL_AT[ref]
-        t = b.text(s, x_, y_, lay, size, thick, a_, mirror=back)
-        OCC[lay].append(_bb(t))
-        return True
-    t = b.text(s, cx, cy, lay, size, thick, ang, mirror=back)
-    if _try(t, cx, cy, ang, hw, hh, lay):
-        return True
-    b.b.Remove(t)
-    return False
-
-
-VALSILK = [("Y1", "25MHz"), ("Y2", "32.768kHz"), ("U2", "AP2112K-3.3")]
-VALSILK += [(r_, v) for r_, v in sorted(CAPVAL.items(), key=lambda kv: int(kv[0][1:]))]
-VALSILK += [(r_, {"R3": "0R"}.get(r_, RES[r_][0])) for r_ in sorted(RES)]   # на шелке короче, в BOM полное
-VALSILK += [("D1", "LED")]
-# Развязка под корпусом стоит сеткой 3.2 мм - её номиналам нужен шрифт помельче
-DECAP = {"C%d" % i for i in range(1, len(VDDP) + 1)}
-REFFIX = [r_ for r_, v in VALSILK] + ["J1", "J2", "J3", "J4", "J5", "J6", "SW1", "SW2", "U1"]
-for r_, v in VALSILK:                       # закреплённые вручную - первыми, чтобы их место было занято
-    if r_ in VAL_AT:
-        put_value(r_, v)
+# Рядом с деталью печатается только обозначение. Номиналы у корпусов не рисуем
+# вовсе: шрифтом, который типография пропечатает, они лезут друг на друга и на
+# соседей. Вместо этого - сводная таблица в свободном месте, ниже.
+PARTS = [("Y1", "25MHz"), ("Y2", "32.768kHz"), ("U2", "AP2112K-3.3")]
+PARTS += [(r_, v) for r_, v in sorted(CAPVAL.items(), key=lambda kv: int(kv[0][1:]))]
+PARTS += [(r_, RES[r_][0]) for r_ in sorted(RES)]
+PARTS += [("D1", "LED")]
+REFFIX = [r_ for r_, v in PARTS] + ["J1", "J2", "J3", "J4", "J5", "J6", "SW1", "SW2", "U1"]
 for r_ in REFFIX:
     if r_ in REF_AT:
         fix_ref(r_)
-_sz = lambda r_: (0.5, 0.1) if r_ in DECAP else (0.8, 0.15)
-_bad = [r_ for r_ in REFFIX if r_ not in REF_AT and not fix_ref(r_, *_sz(r_))]
-_skip = [r_ for r_, v in VALSILK if r_ not in VAL_AT and not put_value(r_, v, *_sz(r_))]
-print("шелк: номиналов %d (нет места: %s), обозначений не пристроено: %s"
-      % (len(VALSILK) - len(_skip), _skip or "-", _bad or "-"))
+_bad = [r_ for r_ in REFFIX if r_ not in REF_AT and not fix_ref(r_)]
+print("шелк: обозначений %d (не пристроено: %s)" % (len(REFFIX), _bad or "-"))
+
+# --- таблица номиналов на обратной стороне
+# У корпусов стоят только обозначения, номиналы собраны сюда: два столбика
+# "обозначение - номинал" в свободных площадках у J4.
+LEG_C = [(r_, v) for r_, v in PARTS if r_.startswith("C")]
+LEG_R = [(r_, v) for r_, v in PARTS if not r_.startswith("C")]
+
+
+def legend(items, x, y, step=1.7):
+    """Столбик "обозначение - номинал". Строки одинаковой ширины: текст стоит по
+    центру, и добитые пробелами номиналы выстраиваются в ровную колонку."""
+    w = max(len(_v) for _, _v in items)
+    for _k, (_r, _v) in enumerate(items):
+        b.text("%-4s %-*s" % (_r, w, _v), x, y + _k * step,
+               pcbnew.B_SilkS, LBLSZ, LBLTH, 0, mirror=True)
+
+
+legend(LEG_C, 168.0, 75.0)                  # 26 конденсаторов вдоль J4
+legend(LEG_R, 151.0, 75.0)                  # резисторы, кварцы, светодиод, стабилизатор
+print("сводка номиналов: %d строк" % (len(LEG_C) + len(LEG_R)))
 
 # --- земляные пады USB-C: полигон цеплял их одной перемычкой вместо двух.
 # Для экранируемого разъёма сплошное соединение и электрически лучше.
@@ -1075,6 +1069,25 @@ with open(os.path.join(OUT, "fp-lib-table"), "w") as _t:
     _t.write('(fp_lib_table\n  (version 7)\n'
              '  (lib (name "%s")(type "KiCad")(uri "${KIPRJMOD}/%s.pretty")(options "")(descr "Footprints used by this board"))\n)\n'
              % (FPLIB, FPLIB))
+
+# Висящие выводы схема именует сама: unconnected-(REF-ИМЯ-PadN). Если на плате
+# у такого пада цепи нет вовсе, KiCad считает это расхождением со схемой -
+# проставляем те же имена, чтобы "Update PCB from schematic" ничего не менял.
+_nc = 0
+for _part in SCH.parts:
+    _fp = b.fps.get(_part.ref)
+    if _fp is None:
+        continue
+    for _pad in _fp.Pads():
+        if _pad.GetNetname():
+            continue
+        _pin = _part.sym.pindict.get(_pad.GetNumber())
+        if _pin is None:
+            continue
+        _pad.SetNet(b.net("unconnected-(%s-%s-Pad%s)"
+                          % (_part.ref, _pin.name, _pad.GetNumber())))
+        _nc += 1
+print("висящих выводов поименовано: %d" % _nc)
 
 b.finish(os.path.join(OUT, NAME + ".kicad_pcb"))
 

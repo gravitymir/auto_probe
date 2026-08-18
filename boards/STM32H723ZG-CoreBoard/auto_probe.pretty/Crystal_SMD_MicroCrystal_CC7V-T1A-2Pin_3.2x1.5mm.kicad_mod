@@ -5,9 +5,9 @@
 	(layer "F.Cu")
 	(descr "MicroCrystal CC7V-T1A/CM7V-T1A, Crystal, 3.2x1.5mm package, SMD, http://www.microcrystal.com/images/_Product-Documentation/01_TF_ceramic_Packages/01_Datasheet/CC1V-T1A.pdf")
 	(property "Reference" "REF**"
-		(at -3.475 0 180)
+		(at -3.475 0 90)
 		(layer "F.SilkS")
-		(uuid "db9a6299-3b3b-45c2-9d5e-4ec7fd62fcb2")
+		(uuid "48a4f0b2-2700-4feb-87e0-ebe8ed499475")
 		(effects
 			(font
 				(size 0.8 0.8)
@@ -19,7 +19,7 @@
 		(at 0 1.95 180)
 		(layer "F.Fab")
 		(hide yes)
-		(uuid "25fac284-bc2b-47c8-a315-c8cc8dcef3c8")
+		(uuid "d2f37238-1ece-42b9-a634-ed2b2c922737")
 		(effects
 			(font
 				(size 1 1)
@@ -31,7 +31,7 @@
 		(at 0 0 180)
 		(layer "F.Fab")
 		(hide yes)
-		(uuid "a3bb4b0a-ada2-48c1-a362-bd9f4de653bc")
+		(uuid "9777b3f7-3f43-450b-9bb2-41dcf0828ec3")
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -42,7 +42,7 @@
 		(at 0 0 180)
 		(layer "F.Fab")
 		(hide yes)
-		(uuid "d6dd107a-4f67-4cfa-a299-448991f13b46")
+		(uuid "25e811e9-8082-4271-9219-0791a4222109")
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -53,7 +53,7 @@
 		(at 0 0 180)
 		(layer "F.SilkS")
 		(hide yes)
-		(uuid "03db0169-968a-4d92-8fa4-9d9a0ff621d2")
+		(uuid "825fae13-0649-4d24-9385-f923d768e760")
 		(effects
 			(font
 				(size 1 1)
@@ -71,7 +71,7 @@
 			(type solid)
 		)
 		(layer "F.SilkS")
-		(uuid "cc658555-2e5d-48e8-bbc8-829f737709ff")
+		(uuid "691166cc-8ed3-4d54-9962-5089037fa630")
 	)
 	(fp_line
 		(start -0.49 -1.01)
@@ -81,7 +81,7 @@
 			(type solid)
 		)
 		(layer "F.SilkS")
-		(uuid "49719b68-0e69-46f5-a7ca-4e8a7c4cacda")
+		(uuid "c1ffecb9-8427-45be-971a-0e0696b1ae7c")
 	)
 	(fp_line
 		(start -0.49 1.01)
@@ -91,7 +91,7 @@
 			(type solid)
 		)
 		(layer "F.SilkS")
-		(uuid "bea8907b-3a48-4878-8381-0779b8976f9a")
+		(uuid "d85b83ae-7fb6-48fc-a3fe-ef5581281f3f")
 	)
 	(fp_rect
 		(start -2.1 -1.25)
@@ -102,7 +102,7 @@
 		)
 		(fill no)
 		(layer "F.CrtYd")
-		(uuid "679931f2-8f3c-40bb-bff5-3a1618ab8811")
+		(uuid "a155bb0c-3aed-4f61-b3a3-6e17e32f5d5e")
 	)
 	(fp_poly
 		(pts
@@ -114,12 +114,12 @@
 		)
 		(fill no)
 		(layer "F.Fab")
-		(uuid "d7680e09-fd27-4ed5-9f7c-b9665537b606")
+		(uuid "61b05b90-8917-45be-9dfa-2c8a89ffc57c")
 	)
 	(fp_text user "${REFERENCE}"
 		(at 0 0 180)
 		(layer "F.Fab")
-		(uuid "040f5f27-00dc-4615-b096-2aa842db58dd")
+		(uuid "58daab74-d33f-4ffa-8e7c-d8664ccd7a3f")
 		(effects
 			(font
 				(size 0.8 0.8)
@@ -132,14 +132,14 @@
 		(size 1 1.8)
 		(layers "F.Cu" "F.Mask" "F.Paste")
 		(roundrect_rratio 0.25)
-		(uuid "76513458-ffd6-4bf8-bece-a4392ff46690")
+		(uuid "ccf76fe1-0d06-4c21-8620-d11e54e9628f")
 	)
 	(pad "2" smd roundrect
 		(at 1.25 0)
 		(size 1 1.8)
 		(layers "F.Cu" "F.Mask" "F.Paste")
 		(roundrect_rratio 0.25)
-		(uuid "af081a39-348a-45ce-ba2e-e883937e720f")
+		(uuid "e14ad865-76f7-4d18-834e-6d347d406bb7")
 	)
 	(embedded_fonts no)
 	(model "${KICAD10_3DMODEL_DIR}/Crystal.3dshapes/Crystal_SMD_MicroCrystal_CC7V-T1A-2Pin_3.2x1.5mm.step"
