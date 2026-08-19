@@ -134,12 +134,14 @@ b.place("R1", R0402[0], R0402[1], X1 - 1.6, UCY - 1.25, 0, back=True, value="5.1
 b.place("R2", R0402[0], R0402[1], X1 - 1.6, UCY + 1.25, 0, back=True, value="5.1k")
 
 XVX = CX - HDI + 2.0
-b.place("Y1", "Crystal", "Crystal_SMD_5032-2Pin_5.0x3.2mm", XVX + 7.0, CY, 270, back=True, value="25MHz")
-b.place("C60", C0402[0], C0402[1], XVX + 13.0, CY, 0, back=True, value="10pF")
-b.place("C61", C0402[0], C0402[1], XVX + 13.0, CY, 0, back=True, value="10pF")
+# Корпус 3225 с четырьмя падами: у JLCPCB 25 МГц в нём - Basic Part (C9006),
+# а двухпадовый 5032 только Extended и с перебоями. Пады 2 и 4 - экран, на землю.
+b.place("Y1", "Crystal", "Crystal_SMD_3225-4Pin_3.2x2.5mm", XVX + 7.0, CY, 270, back=True, value="25MHz")
+b.place("C60", C0402[0], C0402[1], XVX + 13.0, CY, 0, back=True, value="18pF")
+b.place("C61", C0402[0], C0402[1], XVX + 13.0, CY, 0, back=True, value="18pF")
 b.place("Y2", "Crystal", "Crystal_SMD_MicroCrystal_CC7V-T1A-2Pin_3.2x1.5mm", XVX + 7.0, CY - 10.0, 270, back=True, value="32.768kHz")
-b.place("C62", C0402[0], C0402[1], XVX + 13.0, CY - 10.0, 0, back=True, value="6.8pF")
-b.place("C63", C0402[0], C0402[1], XVX + 13.0, CY - 10.0, 0, back=True, value="6.8pF")
+b.place("C62", C0402[0], C0402[1], XVX + 13.0, CY - 10.0, 0, back=True, value="18pF")
+b.place("C63", C0402[0], C0402[1], XVX + 13.0, CY - 10.0, 0, back=True, value="18pF")
 
 b.place("R3", R0402[0], R0402[1], CX - 11.0, CY + 11.0, 45, back=True, value="0R/FB")
 b.place("C70", C0402[0], C0402[1], CX - 13.5, CY + 13.5, 225, back=True, value="100nF")
@@ -207,8 +209,9 @@ for _h in range(1, 5):
                      "auto_probe:MountingHole_2.2mm_M2", {}, at=(500, 100 + _h * 30)))
 d.add(kigen.Part("U2", "Regulator_Linear:AP2112K-3.3", "AP2112K-3.3", "Package_TO_SOT_SMD:SOT-23-5",
                  {"1": "VBUS", "2": "GND", "3": "VBUS", "5": "+3V3"}, at=(440, 270)))
-d.add(kigen.Part("Y1", "Device:Crystal", "25MHz", "Crystal:Crystal_SMD_5032-2Pin_5.0x3.2mm",
-                 {"1": "HSE_IN", "2": "HSE_OUT"}, at=(230, 350)))
+d.add(kigen.Part("Y1", "Device:Crystal_GND24", "25MHz",
+                 "Crystal:Crystal_SMD_3225-4Pin_3.2x2.5mm",
+                 {"1": "HSE_IN", "2": "GND", "3": "HSE_OUT", "4": "GND"}, at=(230, 350)))
 d.add(kigen.Part("Y2", "Device:Crystal", "32.768kHz",
                  "Crystal:Crystal_SMD_MicroCrystal_CC7V-T1A-2Pin_3.2x1.5mm",
                  {"1": "LSE_IN", "2": "LSE_OUT"}, at=(340, 350)))
@@ -223,8 +226,8 @@ CAPNET = {("C%d" % i): ("+3V3", "GND") for i in range(1, len(VDDP) + 1)}
 CAPVAL = {("C%d" % i): "100nF" for i in range(1, len(VDDP) + 1)}
 EXTRA = {"C50": ("VBUS", "GND", "10uF"), "C51": ("+3V3", "GND", "10uF"),
          "C52": ("+3V3", "GND", "100nF"),
-         "C60": ("HSE_IN", "GND", "10pF"), "C61": ("HSE_OUT", "GND", "10pF"),
-         "C62": ("LSE_IN", "GND", "6.8pF"), "C63": ("LSE_OUT", "GND", "6.8pF"),
+         "C60": ("HSE_IN", "GND", "18pF"), "C61": ("HSE_OUT", "GND", "18pF"),
+         "C62": ("LSE_IN", "GND", "18pF"), "C63": ("LSE_OUT", "GND", "18pF"),
          "C70": ("+3V3A", "GND", "100nF"), "C71": ("+3V3A", "GND", "1uF"),
          "C72": ("VCAP1", "GND", "2.2uF"), "C73": ("VCAP2", "GND", "2.2uF"),
          "C74": ("+3V3", "GND", "100nF"), "C75": ("+3V3", "GND", "4.7uF"),
@@ -402,14 +405,39 @@ def to_hdr(mn, frm, app=3.0):
     return [frm, (g, oy + sy * app), (g, oy), (g, hy + sy * 1.1), (hx, hy)]
 
 # --- кварцы на обратной стороне
-for xtal, pins, caps in (("Y1", (23, 24), ("C60", "C61")), ("Y2", (8, 9), ("C62", "C63"))):
-    for k, (mpin, cap) in enumerate(zip(pins, caps)):
-        xp = b.padxy(xtal, k + 1)
-        fp = b.fps[cap]
-        fp.SetPosition(pcbnew.VECTOR2I(mm(tomm(fp.GetPosition().x)), mm(xp[1])))
-        cp = b.padxy(cap, 1)
-        b.track(mcu_net(mpin), [XV[mpin], xp], BCU, 0.18)
-        b.track(mcu_net(mpin), [xp, cp], BCU, 0.18)
+# Y2 двухпадовый: пады напротив своих конденсаторов, отвод прямой.
+for k, (mpin, cap) in enumerate(zip((8, 9), ("C62", "C63"))):
+    xp = b.padxy("Y2", k + 1)
+    fp = b.fps[cap]
+    fp.SetPosition(pcbnew.VECTOR2I(mm(tomm(fp.GetPosition().x)), mm(xp[1])))
+    b.track(mcu_net(mpin), [XV[mpin], xp], BCU, 0.18)
+    b.track(mcu_net(mpin), [xp, b.padxy(cap, 1)], BCU, 0.18)
+
+# Y1 в корпусе 3225: сигнальные пады 1 и 3 стоят по диагонали, между ними по
+# горизонтали - земляные. Поэтому оба сигнала заводим с запада, огибая корпус
+# с разных сторон, а отвод HSE_OUT к своей банке ведём под корпусом.
+YC = (tomm(b.fps["Y1"].GetPosition().x), tomm(b.fps["Y1"].GetPosition().y))
+_p1, _p3 = b.padxy("Y1", "1"), b.padxy("Y1", "3")
+b.fps["C60"].SetPosition(pcbnew.VECTOR2I(mm(tomm(b.fps["C60"].GetPosition().x)), mm(_p1[1])))
+b.fps["C61"].SetPosition(pcbnew.VECTOR2I(mm(tomm(b.fps["C61"].GetPosition().x)), mm(_p3[1])))
+LW, LN, LS, LE = YC[0] - 3.6, _p1[1] - 2.0, _p3[1] + 2.3, _p1[0] + 1.9
+# HSE_IN сворачивает на север западнее, чем HSE_OUT, иначе его полоса пересекает
+# подъём соседа: их via стоят одна над другой, и порядок колонок обратный.
+b.track(mcu_net(23), [XV[23], (LW - 1.4, XV[23][1]), (LW - 1.4, LN), (_p1[0], LN), _p1], BCU, 0.18)
+b.track(mcu_net(23), [_p1, b.padxy("C60", 1)], BCU, 0.18)
+b.track(mcu_net(24), [XV[24], (LW, XV[24][1]), (LW, _p3[1]), _p3], BCU, 0.18)
+b.track(mcu_net(24), [_p3, (_p3[0], LS), (LE, LS), (LE, _p3[1]),
+                      b.padxy("C61", 1)], BCU, 0.18)
+# Экранные пады: отвод наружу по диагонали и via в земляной полигон.
+# Оба экранных пада связываем диагональю под самим корпусом и сажаем на полигон
+# одной via с северо-западной стороны: вокруг кристалла идёт веер гребёнки, и
+# второй via там просто некуда встать, не задев чужую дорожку.
+for _gp in ("2", "4"):
+    b.setnet("Y1", _gp, "GND")
+_g2, _g4 = b.padxy("Y1", "2"), b.padxy("Y1", "4")
+_gv = (_g4[0] - 1.35, _g4[1] - 1.35)
+b.track("GND", [_g2, _g4, _gv], BCU, W)
+b.via("GND", _gv[0], _gv[1], dia=0.6, drill=0.3)
 
 # --- VCAP: банки максимально близко, на обратной стороне под корпусом
 VCPOS = {71: (CX + 5.4, CY + 5.4, 90), 106: (CX + 5.4, CY - 5.4, 180)}
@@ -842,6 +870,16 @@ for pin, lbl in DBGLBL.items():             # подписи под разъём
 b.text("RST", tomm(b.fps["SW1"].GetPosition().x) - 5.45, tomm(b.fps["SW1"].GetPosition().y),
        pcbnew.F_SilkS, 1.5, 0.26, 90)
 b.text("BOOT", tomm(b.fps["SW2"].GetPosition().x), TOPY - 4.6, pcbnew.F_SilkS, 1.5, 0.26, 0)
+# Полярность светодиода: "+" за анодом, "-" за катодом, по оси самой детали.
+# pad_axis смотрит от пада 1 (катод, LED_K) к паду 2 (анод, LED_A).
+_dax = b.pad_axis("D1")
+_dk, _da = b.padxy("D1", 1), b.padxy("D1", 2)
+# По оси ставить некуда: за катодом сразу начинается R5. Выносим вбок, к северо-
+# востоку от пары - там свободно до самой гребёнки J3.
+_dpx, _dpy = _dax[1], -_dax[0]
+for _sg, _c, _pt in ((+1.0, "+", _da), (-1.0, "-", _dk)):
+    b.text(_c, _pt[0] + _dpx * 1.9 + _dax[0] * _sg * 0.4,
+           _pt[1] + _dpy * 1.9 + _dax[1] * _sg * 0.4, pcbnew.F_SilkS, 0.9, 0.18)
 b.text("STM32H723ZGT6 CORE BOARD", CX, CY + 16.4, pcbnew.F_SilkS, 1.6, 0.28)
 b.text("ASTechLab", X1 - 6.6, CY + 18.0, pcbnew.F_SilkS, 3.0, 1.0, 90)
 b.text("84x84 mm | 4 layer | rev.A", X1 - 1.9, CY + 18.0, pcbnew.F_SilkS, 1.0, 0.18, 90)

@@ -7,7 +7,7 @@
 	(property "Reference" "REF**"
 		(at -3.475 0 90)
 		(layer "F.SilkS")
-		(uuid "48a4f0b2-2700-4feb-87e0-ebe8ed499475")
+		(uuid "f9c3b121-f7e8-4461-95d7-dfc2a081b05d")
 		(effects
 			(font
 				(size 0.8 0.8)
@@ -19,7 +19,7 @@
 		(at 0 1.95 180)
 		(layer "F.Fab")
 		(hide yes)
-		(uuid "d2f37238-1ece-42b9-a634-ed2b2c922737")
+		(uuid "f2e3a220-feb2-4563-8115-0f140bc6c592")
 		(effects
 			(font
 				(size 1 1)
@@ -31,7 +31,7 @@
 		(at 0 0 180)
 		(layer "F.Fab")
 		(hide yes)
-		(uuid "9777b3f7-3f43-450b-9bb2-41dcf0828ec3")
+		(uuid "3b3a1036-5b74-4dc7-b996-9e022b5a434a")
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -42,7 +42,7 @@
 		(at 0 0 180)
 		(layer "F.Fab")
 		(hide yes)
-		(uuid "25e811e9-8082-4271-9219-0791a4222109")
+		(uuid "9626316d-ed2f-4357-85fc-61fbc3a926f0")
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -53,7 +53,7 @@
 		(at 0 0 180)
 		(layer "F.SilkS")
 		(hide yes)
-		(uuid "825fae13-0649-4d24-9385-f923d768e760")
+		(uuid "ce02fad3-3b36-42b3-a1d6-85aeb82f0a02")
 		(effects
 			(font
 				(size 1 1)
@@ -71,7 +71,7 @@
 			(type solid)
 		)
 		(layer "F.SilkS")
-		(uuid "691166cc-8ed3-4d54-9962-5089037fa630")
+		(uuid "d43678e7-ec5b-40d9-810f-a1b50937f040")
 	)
 	(fp_line
 		(start -0.49 -1.01)
@@ -81,7 +81,7 @@
 			(type solid)
 		)
 		(layer "F.SilkS")
-		(uuid "c1ffecb9-8427-45be-971a-0e0696b1ae7c")
+		(uuid "38943f23-52c7-4648-8eb9-c6eac3301e92")
 	)
 	(fp_line
 		(start -0.49 1.01)
@@ -91,7 +91,7 @@
 			(type solid)
 		)
 		(layer "F.SilkS")
-		(uuid "d85b83ae-7fb6-48fc-a3fe-ef5581281f3f")
+		(uuid "46129caf-e2da-4ed0-9644-9f937c020ab6")
 	)
 	(fp_rect
 		(start -2.1 -1.25)
@@ -102,7 +102,7 @@
 		)
 		(fill no)
 		(layer "F.CrtYd")
-		(uuid "a155bb0c-3aed-4f61-b3a3-6e17e32f5d5e")
+		(uuid "79582322-35db-4aea-a1f1-b9982c93ebc0")
 	)
 	(fp_poly
 		(pts
@@ -114,12 +114,12 @@
 		)
 		(fill no)
 		(layer "F.Fab")
-		(uuid "61b05b90-8917-45be-9dfa-2c8a89ffc57c")
+		(uuid "f9a99d58-d59a-458e-b0b3-fad08017cc25")
 	)
 	(fp_text user "${REFERENCE}"
 		(at 0 0 180)
 		(layer "F.Fab")
-		(uuid "58daab74-d33f-4ffa-8e7c-d8664ccd7a3f")
+		(uuid "e4041ff6-9e16-41db-b698-4f87f4c72f3d")
 		(effects
 			(font
 				(size 0.8 0.8)
@@ -132,14 +132,14 @@
 		(size 1 1.8)
 		(layers "F.Cu" "F.Mask" "F.Paste")
 		(roundrect_rratio 0.25)
-		(uuid "ccf76fe1-0d06-4c21-8620-d11e54e9628f")
+		(uuid "f27a1802-f8b0-4cc3-8955-0b4b92b0c1c5")
 	)
 	(pad "2" smd roundrect
 		(at 1.25 0)
 		(size 1 1.8)
 		(layers "F.Cu" "F.Mask" "F.Paste")
 		(roundrect_rratio 0.25)
-		(uuid "e14ad865-76f7-4d18-834e-6d347d406bb7")
+		(uuid "8860d22f-398a-4f6f-8981-122613c16ce1")
 	)
 	(embedded_fonts no)
 	(model "${KICAD10_3DMODEL_DIR}/Crystal.3dshapes/Crystal_SMD_MicroCrystal_CC7V-T1A-2Pin_3.2x1.5mm.step"

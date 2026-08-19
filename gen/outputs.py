@@ -19,30 +19,63 @@ for fp in b.GetFootprints():
     ref = fp.GetReference()
     if ref.startswith("REF") or not ref:
         continue
+    pads = list(fp.Pads())
+    if not pads or all(p.GetAttribute() == pcbnew.PAD_ATTRIB_NPTH for p in pads):
+        continue        # крепёжные отверстия: паять нечего, в BOM для сборки не нужны
     fid = "%s:%s" % (fp.GetFPID().GetLibNickname(), fp.GetFPID().GetLibItemName())
     rows[(fp.GetValue(), fid)].append(ref)
 
-# Проверенные номера LCSC (есть в библиотеке сборки JLCPCB)
+# Номера LCSC из списка Basic Parts JLCPCB. Ключ - номинал вместе с футпринтом:
+# 100nF в 0402 и в 0603 это разные детали с разными номерами.
 LCSC = {
+    ("100nF", "C_0402_1005Metric"): "C1525",     # Samsung CL05B104KO5NNNC, 16 В
+    ("18pF", "C_0402_1005Metric"): "C1549",      # Fenghua 0402CG180J500NT, 50 В, C0G
+    ("100nF", "C_0603_1608Metric"): "C14663",    # Yageo CC0603KRX7R9BB104, 50 В
+    ("1uF", "C_0603_1608Metric"): "C15849",      # Samsung CL10A105KB8NNNC, 50 В
+    ("2.2uF", "C_0603_1608Metric"): "C23630",    # Samsung CL10A225KO8NNNC, 16 В
+    ("10uF", "C_0805_2012Metric"): "C15850",     # Samsung CL21A106KAYNNNE, 25 В
+    ("4.7uF", "C_0805_2012Metric"): "C1779",     # Samsung CL21A475KAQNNNE, 25 В
+    ("10k", "R_0402_1005Metric"): "C25744",      # Uniroyal 0402WGF1002TCE, 1%
+    ("1k", "R_0402_1005Metric"): "C11702",       # Uniroyal 0402WGF1001TCE, 1%
+    ("5.1k", "R_0402_1005Metric"): "C25905",     # Uniroyal 0402WGF5101TCE, 1%
+    ("0R/FB", "R_0402_1005Metric"): "C17168",    # Uniroyal 0402WGF0000TCE
+    ("LED", "LED_0805_2012Metric"): "C84256",    # NationStar FC-2012HRK-620D, красный
+}
+# Замены с той же распиновкой - на случай, когда штатной детали нет на складе.
+ALT = {
+    "AP2112K-3.3": "аналог по выводам ME6211C33M5G-N (C82942), SOT-23-5, 1 VIN / 2 GND / 3 EN / 5 VOUT",
+}
+# Активные детали уникальны по номиналу, футпринт для них не нужен.
+LCSC_ANY = {
     "STM32G474RET6": "C521608",
+    "STM32H723ZGT6": "C730146",
     "AP2112K-3.3": "C51118",
+    "25MHz": "C9006",       # Yangxing X322525MOB4SI, SMD-3225 4 пада, CL 12 пФ
     "USB-C": "C165948",
 }
 with open(os.path.join(out, "BOM.csv"), "w", newline="") as f:
     w = csv.writer(f)
-    w.writerow(["Qty", "Value", "Footprint", "Designators", "LCSC", "Comment"])
+    # Имена колонок - те, что ждёт JLCPCB (Comment / Designator / Footprint /
+    # LCSC Part #); свои Qty и примечание идут следом, лишние колонки он игнорирует.
+    w.writerow(["Comment", "Designator", "Footprint", "LCSC Part #", "Qty", "Note"])
     # Пассивку берут по номиналу и типоразмеру, а активной детали нужен конкретный
     # номер - советовать для неё "подобрать по номиналу" бессмысленно.
     passive = re.compile(r"^[\d.]+\s*(?:[pnuµmk]?[FRH]|R|k|M|Ohm)\b|^0R$|^LED$", re.I)
     for (val, fid), refs in sorted(rows.items(), key=lambda kv: (kv[0][1], kv[0][0])):
-        code = LCSC.get(val, "")
+        code = LCSC.get((val, fid.split(":")[-1])) or LCSC_ANY.get(val, "")
         if code:
-            note = ""
+            note = "проверить наличие на складе"
+            if val in ALT:
+                note += "; " + ALT[val]
+        elif any(r.startswith("Y") for r in refs):
+            # Ёмкости обвязки посчитаны под конкретную нагрузочную: 10 пФ -> CL ~8 пФ,
+            # 6.8 пФ -> CL ~7 пФ. Кварц с другой CL уведёт частоту или не запустится.
+            note = "обвязка 18 пФ рассчитана под CL 12...12.5 пФ - брать кварц с такой же"
         elif passive.match(val):
             note = "подобрать из JLCPCB Basic Parts по номиналу/типоразмеру"
         else:
             note = "уточнить номер LCSC под конкретную деталь"
-        w.writerow([len(refs), val, fid, ",".join(sorted(refs)), code, note])
+        w.writerow([val, ",".join(sorted(refs)), fid, code, len(refs), note])
 
 geom = os.path.join(out, "_geom.json")
 if os.path.exists(geom):

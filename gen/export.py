@@ -34,6 +34,23 @@ def run(*args):
     return r.stdout.strip()
 
 
+# JLCPCB разбирает CPL по именам колонок и родные заголовки KiCad не понимает -
+# файл отвергается целиком ("Failed processing the CPL file"). Переименовываем.
+CPLHDR = {"Ref": "Designator", "PosX": "Mid X", "PosY": "Mid Y",
+          "Rot": "Rotation", "Side": "Layer"}
+
+
+def jlc_cpl(path):
+    import csv
+    with open(path, newline="") as f:
+        rows = list(csv.reader(f))
+    if not rows:
+        return
+    rows[0] = [CPLHDR.get(c, c) for c in rows[0]]
+    with open(path, "w", newline="") as f:
+        csv.writer(f).writerows(rows)
+
+
 def main(out):
     out = os.path.abspath(out)              # kicad-cli путается в относительных путях
     name = os.path.basename(out)
@@ -56,8 +73,10 @@ def main(out):
             z.write(os.path.join(gerb, f), f)
     print("архив:", os.path.basename(zpath))
 
+    pos = os.path.join(out, "pos.csv")
     run("pcb", "export", "pos", "--format", "csv", "--units", "mm", "--side", "both",
-        "-o", os.path.join(out, "pos.csv"), pcb)
+        "-o", pos, pcb)
+    jlc_cpl(pos)
     run("pcb", "export", "pdf", "--layers", "F.Cu,F.Silkscreen,Edge.Cuts",
         "-o", os.path.join(out, "top.pdf"), pcb)
     run("pcb", "export", "pdf", "--layers", "B.Cu,B.Silkscreen,Edge.Cuts",
