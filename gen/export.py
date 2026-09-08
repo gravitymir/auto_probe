@@ -40,15 +40,33 @@ CPLHDR = {"Ref": "Designator", "PosX": "Mid X", "PosY": "Mid Y",
           "Rot": "Rotation", "Side": "Layer"}
 
 
+# Поправка поворота для CPL. Библиотека JLCPCB собрана из футпринтов EasyEDA, и
+# у них другое соглашение о том, в каком углу корпуса нулевой вывод: для QFP это
+# регулярно даёт расхождение на 90 градусов с официальными футпринтами KiCad.
+# Правка только в CPL - на самой плате и в схеме ничего не меняется.
+ROT_FIX = {
+    "U1": -90.0,        # LQFP-144: их пад 1 в просмотрщике вставал в левый нижний угол
+}
+
+
 def jlc_cpl(path):
     import csv
     with open(path, newline="") as f:
         rows = list(csv.reader(f))
     if not rows:
         return
-    rows[0] = [CPLHDR.get(c, c) for c in rows[0]]
+    hdr = rows[0]
+    rows[0] = [CPLHDR.get(c, c) for c in hdr]
+    ir = rows[0].index("Rotation") if "Rotation" in rows[0] else None
+    fixed = []
+    for r in rows[1:]:
+        if ir is not None and r[0] in ROT_FIX:
+            r[ir] = "%.6f" % ((float(r[ir]) + ROT_FIX[r[0]]) % 360.0)
+            fixed.append(r[0])
     with open(path, "w", newline="") as f:
         csv.writer(f).writerows(rows)
+    if fixed:
+        print("поворот в CPL поправлен: %s" % ", ".join(fixed))
 
 
 def main(out):

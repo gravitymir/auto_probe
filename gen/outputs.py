@@ -15,6 +15,7 @@ name = os.path.splitext(os.path.basename(path))[0]
 b = pcbnew.LoadBoard(path)
 
 rows = defaultdict(list)
+tht = {}
 for fp in b.GetFootprints():
     ref = fp.GetReference()
     if ref.startswith("REF") or not ref:
@@ -24,6 +25,10 @@ for fp in b.GetFootprints():
         continue        # крепёжные отверстия: паять нечего, в BOM для сборки не нужны
     fid = "%s:%s" % (fp.GetFPID().GetLibNickname(), fp.GetFPID().GetLibItemName())
     rows[(fp.GetValue(), fid)].append(ref)
+    # Выводные детали (гребёнки) в SMT-монтаж не идут - помечаем, чтобы не советовать
+    # для них номер LCSC как для устанавливаемой автоматом.
+    if all(p.GetAttribute() == pcbnew.PAD_ATTRIB_PTH for p in pads):
+        tht[fp.GetValue()] = True
 
 # Номера LCSC из списка Basic Parts JLCPCB. Ключ - номинал вместе с футпринтом:
 # 100nF в 0402 и в 0603 это разные детали с разными номерами.
@@ -51,6 +56,11 @@ LCSC_ANY = {
     "STM32H723ZGT6": "C730146",
     "AP2112K-3.3": "C51118",
     "25MHz": "C9006",       # Yangxing X322525MOB4SI, SMD-3225 4 пада, CL 12 пФ
+    # XKB TS-1187A-B-A-B: Basic Part, корпус 5.1x5.1, шаг падов 3.70 и разлёт
+    # выводов 6.5 - совпадает с посадочным местом ALPS SKQG, под которое разведено.
+    "RESET": "C318884",
+    "BOOT0": "C318884",
+    "32.768kHz": "C97606",  # SC-32S, CL 12.5 пФ, корпус 3215 - под нашу обвязку 18 пФ
     "USB-C": "C165948",
 }
 with open(os.path.join(out, "BOM.csv"), "w", newline="") as f:
@@ -61,16 +71,30 @@ with open(os.path.join(out, "BOM.csv"), "w", newline="") as f:
     # Пассивку берут по номиналу и типоразмеру, а активной детали нужен конкретный
     # номер - советовать для неё "подобрать по номиналу" бессмысленно.
     passive = re.compile(r"^[\d.]+\s*(?:[pnuµmk]?[FRH]|R|k|M|Ohm)\b|^0R$|^LED$", re.I)
-    for (val, fid), refs in sorted(rows.items(), key=lambda kv: (kv[0][1], kv[0][0])):
+    # Одинаковые детали сводим в одну строку по номеру LCSC. У кнопок "номинал" -
+    # это функция (RESET / BOOT0), а деталь одна: две строки на один номер
+    # JLCPCB помечает как "multiple lines matched to the same part".
+    merged = defaultdict(list)
+    for (val, fid), refs in rows.items():
         code = LCSC.get((val, fid.split(":")[-1])) or LCSC_ANY.get(val, "")
+        merged[(code, fid) if code else (val, fid)].append((val, refs))
+    for (_k, fid), group in sorted(merged.items(), key=lambda kv: (kv[0][1], kv[0][0])):
+        val0 = group[0][0]
+        val = "/".join(sorted({v for v, _ in group}))
+        refs = [r for _, rr in group for r in rr]
+        code = LCSC.get((val0, fid.split(":")[-1])) or LCSC_ANY.get(val0, "")
         if code:
             note = "проверить наличие на складе"
-            if val in ALT:
-                note += "; " + ALT[val]
+            if val0 in ALT:
+                note += "; " + ALT[val0]
+            if any(r.startswith("Y") for r in refs):
+                note += "; обвязка 18 пФ - только под CL 12...12.5 пФ"
         elif any(r.startswith("Y") for r in refs):
             # Ёмкости обвязки посчитаны под конкретную нагрузочную: 10 пФ -> CL ~8 пФ,
             # 6.8 пФ -> CL ~7 пФ. Кварц с другой CL уведёт частоту или не запустится.
             note = "обвязка 18 пФ рассчитана под CL 12...12.5 пФ - брать кварц с такой же"
+        elif tht.get(val0):
+            note = "выводная: в SMT-монтаж не идёт, паяется отдельно"
         elif passive.match(val):
             note = "подобрать из JLCPCB Basic Parts по номиналу/типоразмеру"
         else:

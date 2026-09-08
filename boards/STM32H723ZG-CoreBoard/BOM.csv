@@ -6,20 +6,19 @@ Comment,Designator,Footprint,LCSC Part #,Qty,Note
 2.2uF,"C72,C73",auto_probe:C_0603_1608Metric,C23630,2,проверить наличие на складе
 10uF,"C50,C51",auto_probe:C_0805_2012Metric,C15850,2,проверить наличие на складе
 4.7uF,"C75,C76",auto_probe:C_0805_2012Metric,C1779,2,проверить наличие на складе
-25MHz,Y1,auto_probe:Crystal_SMD_3225-4Pin_3.2x2.5mm,C9006,1,проверить наличие на складе
-32.768kHz,Y2,auto_probe:Crystal_SMD_MicroCrystal_CC7V-T1A-2Pin_3.2x1.5mm,,1,обвязка 18 пФ рассчитана под CL 12...12.5 пФ - брать кварц с такой же
+25MHz,Y1,auto_probe:Crystal_SMD_3225-4Pin_3.2x2.5mm,C9006,1,проверить наличие на складе; обвязка 18 пФ - только под CL 12...12.5 пФ
+32.768kHz,Y2,auto_probe:Crystal_SMD_MicroCrystal_CC7V-T1A-2Pin_3.2x1.5mm,C97606,1,проверить наличие на складе; обвязка 18 пФ - только под CL 12...12.5 пФ
 LED,D1,auto_probe:LED_0805_2012Metric,C84256,1,проверить наличие на складе
 STM32H723ZGT6,U1,auto_probe:LQFP-144_20x20mm_P0.5mm,C730146,1,проверить наличие на складе
-DEBUG,J6,auto_probe:PinHeader_1x10_P2.54mm_Vertical,,1,уточнить номер LCSC под конкретную деталь
-PORT_B,J3,auto_probe:PinHeader_2x18_P2.54mm_Vertical,,1,уточнить номер LCSC под конкретную деталь
-PORT_L,J2,auto_probe:PinHeader_2x18_P2.54mm_Vertical,,1,уточнить номер LCSC под конкретную деталь
-PORT_R,J4,auto_probe:PinHeader_2x18_P2.54mm_Vertical,,1,уточнить номер LCSC под конкретную деталь
-PORT_T,J5,auto_probe:PinHeader_2x18_P2.54mm_Vertical,,1,уточнить номер LCSC под конкретную деталь
+DEBUG,J6,auto_probe:PinHeader_1x10_P2.54mm_Vertical,,1,"выводная: в SMT-монтаж не идёт, паяется отдельно"
+PORT_B,J3,auto_probe:PinHeader_2x18_P2.54mm_Vertical,,1,"выводная: в SMT-монтаж не идёт, паяется отдельно"
+PORT_L,J2,auto_probe:PinHeader_2x18_P2.54mm_Vertical,,1,"выводная: в SMT-монтаж не идёт, паяется отдельно"
+PORT_R,J4,auto_probe:PinHeader_2x18_P2.54mm_Vertical,,1,"выводная: в SMT-монтаж не идёт, паяется отдельно"
+PORT_T,J5,auto_probe:PinHeader_2x18_P2.54mm_Vertical,,1,"выводная: в SMT-монтаж не идёт, паяется отдельно"
+1k,R5,auto_probe:R_0402_1005Metric,C11702,1,проверить наличие на складе
 0R/FB,R3,auto_probe:R_0402_1005Metric,C17168,1,проверить наличие на складе
 10k,R4,auto_probe:R_0402_1005Metric,C25744,1,проверить наличие на складе
-1k,R5,auto_probe:R_0402_1005Metric,C11702,1,проверить наличие на складе
 5.1k,"R1,R2",auto_probe:R_0402_1005Metric,C25905,2,проверить наличие на складе
 AP2112K-3.3,U2,auto_probe:SOT-23-5,C51118,1,"проверить наличие на складе; аналог по выводам ME6211C33M5G-N (C82942), SOT-23-5, 1 VIN / 2 GND / 3 EN / 5 VOUT"
-BOOT0,SW2,auto_probe:SW_SPST_SKQG_WithoutStem,,1,уточнить номер LCSC под конкретную деталь
-RESET,SW1,auto_probe:SW_SPST_SKQG_WithoutStem,,1,уточнить номер LCSC под конкретную деталь
+BOOT0/RESET,"SW1,SW2",auto_probe:SW_SPST_SKQG_WithoutStem,C318884,2,проверить наличие на складе
 USB-C,J1,auto_probe:USB_C_Receptacle_HRO_TYPE-C-31-M-12,C165948,1,проверить наличие на складе
