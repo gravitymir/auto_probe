@@ -24,6 +24,8 @@ for fp in b.GetFootprints():
     if not pads or all(p.GetAttribute() == pcbnew.PAD_ATTRIB_NPTH for p in pads):
         continue        # крепёжные отверстия: паять нечего, в BOM для сборки не нужны
     fid = "%s:%s" % (fp.GetFPID().GetLibNickname(), fp.GetFPID().GetLibItemName())
+    if "SolderJumper" in fid:
+        continue        # паяная перемычка - рисунок на меди, покупать и ставить нечего
     rows[(fp.GetValue(), fid)].append(ref)
     # Выводные детали (гребёнки) в SMT-монтаж не идут - помечаем, чтобы не советовать
     # для них номер LCSC как для устанавливаемой автоматом.
@@ -44,6 +46,8 @@ LCSC = {
     ("1k", "R_0402_1005Metric"): "C11702",       # Uniroyal 0402WGF1001TCE, 1%
     ("5.1k", "R_0402_1005Metric"): "C25905",     # Uniroyal 0402WGF5101TCE, 1%
     ("0R/FB", "R_0402_1005Metric"): "C17168",    # Uniroyal 0402WGF0000TCE
+    ("33pF", "C_0402_1005Metric"): "C1562",      # FH 0402CG330J500NT, 50 В, C0G
+    ("120R", "R_0603_1608Metric"): "C22787",     # Uniroyal 0603WAF1200T5E, 1% - терминатор CAN
     ("LED", "LED_0805_2012Metric"): "C84256",    # NationStar FC-2012HRK-620D, красный
 }
 # Замены с той же распиновкой - на случай, когда штатной детали нет на складе.
@@ -56,12 +60,22 @@ LCSC_ANY = {
     "STM32H723ZGT6": "C730146",
     "AP2112K-3.3": "C51118",
     "25MHz": "C9006",       # Yangxing X322525MOB4SI, SMD-3225 4 пада, CL 12 пФ
+    "8MHz": "C115962",      # YXC X50328MSB2GI, SMD-5032 2 пада, CL 20 пФ - под обвязку 33 пФ
     # XKB TS-1187A-B-A-B: Basic Part, корпус 5.1x5.1, шаг падов 3.70 и разлёт
     # выводов 6.5 - совпадает с посадочным местом ALPS SKQG, под которое разведено.
     "RESET": "C318884",
     "BOOT0": "C318884",
     "32.768kHz": "C97606",  # SC-32S, CL 12.5 пФ, корпус 3215 - под нашу обвязку 18 пФ
     "USB-C": "C165948",
+    "TCAN332G": "C2671083",  # TI TCAN332GDCNT, SOT-23-8, 3.3 В, CAN FD 5 Мбит/с
+    "MSK12C02": "C431540",   # SHOU HAN, движковый SPDT - терминатор вкл/выкл
+}
+# Требование к нагрузочной ёмкости кварца - по номиналу. Оно остаётся в примечании
+# даже когда номер известен: именно CL молча ломает плату при замене детали.
+CL_NOTE = {
+    "25MHz": "обвязка 18 пФ - только под CL 12...12.5 пФ",
+    "32.768kHz": "обвязка 18 пФ - только под CL 12...12.5 пФ",
+    "8MHz": "обвязка 33 пФ - только под CL 20 пФ",
 }
 with open(os.path.join(out, "BOM.csv"), "w", newline="") as f:
     w = csv.writer(f)
@@ -88,11 +102,10 @@ with open(os.path.join(out, "BOM.csv"), "w", newline="") as f:
             if val0 in ALT:
                 note += "; " + ALT[val0]
             if any(r.startswith("Y") for r in refs):
-                note += "; обвязка 18 пФ - только под CL 12...12.5 пФ"
+                note += "; " + CL_NOTE.get(val0, "сверить CL кварца с обвязкой на плате")
         elif any(r.startswith("Y") for r in refs):
-            # Ёмкости обвязки посчитаны под конкретную нагрузочную: 10 пФ -> CL ~8 пФ,
-            # 6.8 пФ -> CL ~7 пФ. Кварц с другой CL уведёт частоту или не запустится.
-            note = "обвязка 18 пФ рассчитана под CL 12...12.5 пФ - брать кварц с такой же"
+            # Кварц с другой CL уведёт частоту или не запустится.
+            note = CL_NOTE.get(val0, "сверить CL кварца с обвязкой на плате") + " - брать кварц с такой же"
         elif tht.get(val0):
             note = "выводная: в SMT-монтаж не идёт, паяется отдельно"
         elif passive.match(val):

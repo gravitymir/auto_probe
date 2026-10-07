@@ -44,8 +44,12 @@ CPLHDR = {"Ref": "Designator", "PosX": "Mid X", "PosY": "Mid Y",
 # у них другое соглашение о том, в каком углу корпуса нулевой вывод: для QFP это
 # регулярно даёт расхождение на 90 градусов с официальными футпринтами KiCad.
 # Правка только в CPL - на самой плате и в схеме ничего не меняется.
+# Ключ - подстрока имени футпринта: правило принадлежит корпусу, а не позиции
+# (проверено заказом H723 для LQFP-144; для SOT/чипов поправка не нужна).
 ROT_FIX = {
-    "U1": -90.0,        # LQFP-144: их пад 1 в просмотрщике вставал в левый нижний угол
+    "LQFP-144": -90.0,  # их пад 1 в просмотрщике вставал в левый нижний угол
+    "LQFP-64": -90.0,   # то же семейство корпусов
+    "SOT-23-8": 180.0,  # заказ CAN-Unit: пад 1 вставал в противоположный угол
 }
 
 
@@ -58,10 +62,17 @@ def jlc_cpl(path):
     hdr = rows[0]
     rows[0] = [CPLHDR.get(c, c) for c in hdr]
     ir = rows[0].index("Rotation") if "Rotation" in rows[0] else None
+    ip = rows[0].index("Package") if "Package" in rows[0] else None
     fixed = []
     for r in rows[1:]:
-        if ir is not None and r[0] in ROT_FIX:
-            r[ir] = "%.6f" % ((float(r[ir]) + ROT_FIX[r[0]]) % 360.0)
+        fix = None
+        if ip is not None:
+            for key, ang in ROT_FIX.items():
+                if key in r[ip]:
+                    fix = ang
+                    break
+        if ir is not None and fix is not None:
+            r[ir] = "%.6f" % ((float(r[ir]) + fix) % 360.0)
             fixed.append(r[0])
     with open(path, "w", newline="") as f:
         csv.writer(f).writerows(rows)
