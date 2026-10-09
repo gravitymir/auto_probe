@@ -50,6 +50,10 @@ LCSC = {
     ("120R", "R_0603_1608Metric"): "C22787",     # Uniroyal 0603WAF1200T5E, 1% - терминатор CAN
     ("LED", "LED_0805_2012Metric"): "C84256",    # NationStar FC-2012HRK-620D, красный
     ("510R", "R_0805_2012Metric"): "C17734",     # Uniroyal 0805W8F5100T5E, 1% - мастер-подтяжка LIN
+    ("470k", "R_0805_2012Metric"): "C17709",     # Uniroyal 0805W8F4703T5E, 1%, 150 В - вход вольтметра
+    ("18k", "R_0402_1005Metric"): "C25762",      # Uniroyal 0402WGF1802TCE, 1%
+    ("220R", "R_0402_1005Metric"): "C25091",     # Uniroyal 0402WGF2200TCE, 1%
+    ("470pF", "C_0402_1005Metric"): "C75274",    # FH 0402CG471J500NT, 50 В, C0G
     ("1N4148W", "D_SOD-123"): "C81598",          # ST, Basic - защита от переполюсовки
     ("SMAJ24CA", "D_SMA"): "C28092",             # RUILON, двунаправленный TVS 24 В (вход 12 В)
     ("PESD1LIN", "D_SOD-323"): "C58901",         # Nexperia PESD1LIN,115 - TVS линий LIN/K-line
@@ -73,6 +77,8 @@ LCSC_ANY = {
     "USB-C": "C165948",
     "TCAN332G": "C2671083",  # TI TCAN332GDCNT, SOT-23-8, 3.3 В, CAN FD 5 Мбит/с
     "TLE7258D": "C540017",   # Infineon, TSON-8, LIN без TXD-таймаута; склад мал (~250 шт)
+    "LMV358": "C7980",       # ST LMV358IDT, SO-8, 2 ОУ rail-to-rail, 2.7-6 В
+    "BAT54S": "C47546",      # Nexperia BAT54S,215 - оригинал; клампы входов (качество > цена)
     "MSK12C02": "C431540",   # SHOU HAN, движковый SPDT - терминатор вкл/выкл
 }
 # Требование к нагрузочной ёмкости кварца - по номиналу. Оно остаётся в примечании

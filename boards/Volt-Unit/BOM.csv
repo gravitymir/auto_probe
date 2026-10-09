@@ -1,0 +1,11 @@
+Comment,Designator,Footprint,LCSC Part #,Qty,Note
+100nF,"C2,C3",auto_probe:C_0402_1005Metric,C1525,2,проверить наличие на складе
+470pF,C1,auto_probe:C_0402_1005Metric,C75274,1,проверить наличие на складе
+PROBE,J2,auto_probe:PinHeader_1x02_P2.54mm_Vertical,,1,"выводная: в SMT-монтаж не идёт, паяется отдельно"
+LOGIC,J1,auto_probe:PinHeader_1x03_P2.54mm_Vertical,,1,"выводная: в SMT-монтаж не идёт, паяется отдельно"
+220R,R7,auto_probe:R_0402_1005Metric,C25091,1,проверить наличие на складе
+10k,"R5,R6",auto_probe:R_0402_1005Metric,C25744,2,проверить наличие на складе
+18k,"R3,R4",auto_probe:R_0402_1005Metric,C25762,2,проверить наличие на складе
+470k,"R1,R2",auto_probe:R_0805_2012Metric,C17709,2,проверить наличие на складе
+LMV358,U1,auto_probe:SOIC-8_3.9x4.9mm_P1.27mm,C7980,1,проверить наличие на складе
+BAT54S,"D1,D2",auto_probe:SOT-23,C47546,2,проверить наличие на складе
