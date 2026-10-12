@@ -39,16 +39,18 @@ LCSC = {
     ("18pF", "C_0402_1005Metric"): "C1549",      # Fenghua 0402CG180J500NT, 50 В, C0G
     ("100nF", "C_0603_1608Metric"): "C14663",    # Yageo CC0603KRX7R9BB104, 50 В
     ("1uF", "C_0603_1608Metric"): "C15849",      # Samsung CL10A105KB8NNNC, 50 В
+    ("1uF", "C_0402_1005Metric"): "C52923",      # Samsung CL05A105KA5NQNC, 25 В, X5R - выход LDO, EN RC
     ("2.2uF", "C_0603_1608Metric"): "C23630",    # Samsung CL10A225KO8NNNC, 16 В
     ("10uF", "C_0805_2012Metric"): "C15850",     # Samsung CL21A106KAYNNNE, 25 В
     ("4.7uF", "C_0805_2012Metric"): "C1779",     # Samsung CL21A475KAQNNNE, 25 В
     ("10k", "R_0402_1005Metric"): "C25744",      # Uniroyal 0402WGF1002TCE, 1%
     ("1k", "R_0402_1005Metric"): "C11702",       # Uniroyal 0402WGF1001TCE, 1%
     ("5.1k", "R_0402_1005Metric"): "C25905",     # Uniroyal 0402WGF5101TCE, 1%
+    ("100k", "R_0402_1005Metric"): "C25741",     # Uniroyal 0402WGF1003TCE, 1%
     ("0R/FB", "R_0402_1005Metric"): "C17168",    # Uniroyal 0402WGF0000TCE
     ("33pF", "C_0402_1005Metric"): "C1562",      # FH 0402CG330J500NT, 50 В, C0G
     ("120R", "R_0603_1608Metric"): "C22787",     # Uniroyal 0603WAF1200T5E, 1% - терминатор CAN
-    ("LED", "LED_0805_2012Metric"): "C84256",    # NationStar FC-2012HRK-620D, красный
+    ("LED", "LED_0805_2012Metric"): "C84256",    # NationStar NCD0805R1, красный
     ("510R", "R_0805_2012Metric"): "C17734",     # Uniroyal 0805W8F5100T5E, 1% - мастер-подтяжка LIN
     ("470k", "R_0805_2012Metric"): "C17709",     # Uniroyal 0805W8F4703T5E, 1%, 150 В - вход вольтметра
     ("18k", "R_0402_1005Metric"): "C25762",      # Uniroyal 0402WGF1802TCE, 1%
@@ -57,6 +59,10 @@ LCSC = {
     ("1N4148W", "D_SOD-123"): "C81598",          # ST, Basic - защита от переполюсовки
     ("SMAJ24CA", "D_SMA"): "C28092",             # RUILON, двунаправленный TVS 24 В (вход 12 В)
     ("PESD1LIN", "D_SOD-323"): "C58901",         # Nexperia PESD1LIN,115 - TVS линий LIN/K-line
+    ("SS34", "D_SMA"): "C8678",                  # MDD SS34, 3 А 40 В, Basic - диодное ИЛИ 5V
+    # JST PH 4 пина, вертикальный: ставит завод (волной). Ответка - корпус PHR-4
+    # (C111514) + контакты SPH-002T-P0.5S (C111515), или готовый кабель "JST PH 2.0 4P".
+    ("5V IN", "JST_PH_B4B-PH-K_1x04_P2.00mm_Vertical"): "C131334",
 }
 # Замены с той же распиновкой - на случай, когда штатной детали нет на складе.
 ALT = {
@@ -67,12 +73,14 @@ LCSC_ANY = {
     "STM32G474RET6": "C521608",
     "STM32H723ZGT6": "C730146",
     "AP2112K-3.3": "C51118",
+    "TLV75733": "C485517",   # TI TLV75733PDBVR, SOT-23-5, 1 А, падение <=0.425 В при 1 А
     "25MHz": "C9006",       # Yangxing X322525MOB4SI, SMD-3225 4 пада, CL 12 пФ
     "8MHz": "C115962",      # YXC X50328MSB2GI, SMD-5032 2 пада, CL 20 пФ - под обвязку 33 пФ
     # XKB TS-1187A-B-A-B: Basic Part, корпус 5.1x5.1, шаг падов 3.70 и разлёт
     # выводов 6.5 - совпадает с посадочным местом ALPS SKQG, под которое разведено.
     "RESET": "C318884",
     "BOOT0": "C318884",
+    "BOOT": "C318884",
     "32.768kHz": "C97606",  # SC-32S, CL 12.5 пФ, корпус 3215 - под нашу обвязку 18 пФ
     "USB-C": "C165948",
     "TCAN332G": "C2671083",  # TI TCAN332GDCNT, SOT-23-8, 3.3 В, CAN FD 5 Мбит/с
@@ -80,6 +88,9 @@ LCSC_ANY = {
     "LMV358": "C7980",       # ST LMV358IDT, SO-8, 2 ОУ rail-to-rail, 2.7-6 В
     "BAT54S": "C47546",      # Nexperia BAT54S,215 - оригинал; клампы входов (качество > цена)
     "MSK12C02": "C431540",   # SHOU HAN, движковый SPDT - терминатор вкл/выкл
+    "ESP32-S3-WROOM-1-N16R8": "C2913202",  # Espressif, 16 МБ flash + 8 МБ octal PSRAM
+    "MAX98357A": "C910544",  # Maxim MAX98357AETE+T, TQFN-16, 3 Вт класс D, I2S
+    "ICS-43434": "C5656610", # TDK, LGA-6, I2S MEMS; снят с производства (EOL) - склад мал (~350)
 }
 # Требование к нагрузочной ёмкости кварца - по номиналу. Оно остаётся в примечании
 # даже когда номер известен: именно CL молча ломает плату при замене детали.

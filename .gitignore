@@ -6,3 +6,5 @@ __pycache__/
 ~*.lck
 .history/
 *-drc.rpt
+gen/_easyeda_cache/
+boards/_variants/

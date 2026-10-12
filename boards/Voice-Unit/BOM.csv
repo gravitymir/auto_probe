@@ -1,0 +1,19 @@
+Comment,Designator,Footprint,LCSC Part #,Qty,Note
+100nF,"C10,C2,C4,C6",auto_probe:C_0402_1005Metric,C1525,4,проверить наличие на складе
+1uF,"C5,C9",auto_probe:C_0402_1005Metric,C52923,2,проверить наличие на складе
+10uF,"C1,C3,C7,C8",auto_probe:C_0805_2012Metric,C15850,4,проверить наличие на складе
+SS34,"D1,D2",auto_probe:D_SMA,C8678,2,проверить наличие на складе
+ESP32-S3-WROOM-1-N16R8,U1,auto_probe:ESP32-S3-WROOM-1,C2913202,1,проверить наличие на складе
+ICS-43434,"MK1,MK2",auto_probe:InvenSense_ICS-43434-6_3.5x2.65mm,C5656610,2,проверить наличие на складе
+5V IN,J3,auto_probe:JST_PH_B4B-PH-K_1x04_P2.00mm_Vertical,C131334,1,проверить наличие на складе
+LED,D3,auto_probe:LED_0805_2012Metric,C84256,1,проверить наличие на складе
+SPEAKER,J2,auto_probe:PinHeader_1x02_P2.54mm_Vertical,,1,"выводная: в SMT-монтаж не идёт, паяется отдельно"
+LOGIC,J4,auto_probe:PinHeader_1x04_P2.54mm_Vertical,,1,"выводная: в SMT-монтаж не идёт, паяется отдельно"
+1k,R3,auto_probe:R_0402_1005Metric,C11702,1,проверить наличие на складе
+100k,R2,auto_probe:R_0402_1005Metric,C25741,1,проверить наличие на складе
+10k,R1,auto_probe:R_0402_1005Metric,C25744,1,проверить наличие на складе
+5.1k,"R4,R5",auto_probe:R_0402_1005Metric,C25905,2,проверить наличие на складе
+TLV75733,U3,auto_probe:SOT-23-5,C485517,1,проверить наличие на складе
+BOOT/RESET,"SW1,SW2",auto_probe:SW_SPST_SKQG_WithoutStem,C318884,2,проверить наличие на складе
+MAX98357A,U2,auto_probe:TQFN-16-1EP_3x3mm_P0.5mm_EP1.6x1.6mm,C910544,1,проверить наличие на складе
+USB-C,J1,auto_probe:USB_C_Receptacle_HRO_TYPE-C-31-M-12,C165948,1,проверить наличие на складе
