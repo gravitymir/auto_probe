@@ -63,6 +63,25 @@ LCSC = {
     # JST PH 4 пина, вертикальный: ставит завод (волной). Ответка - корпус PHR-4
     # (C111514) + контакты SPH-002T-P0.5S (C111515), или готовый кабель "JST PH 2.0 4P".
     ("5V IN", "JST_PH_B4B-PH-K_1x04_P2.00mm_Vertical"): "C131334",
+    # PSU-Unit (питание от АКБ автомобиля), склад проверен 2026-10-12
+    ("5V OUT", "JST_PH_B4B-PH-K_1x04_P2.00mm_Vertical"): "C131334",
+    ("BAT MOD", "JST_PH_B6B-PH-K_1x06_P2.00mm_Vertical"): "C131342",
+    ("12V IN", "TerminalBlock_Phoenix_MKDS-1,5-2_1x02_P5.00mm_Horizontal"): "C474881",  # Cixi Kefa KF301-5.0-2P
+    ("240k", "R_0402_1005Metric"): "C64043",     # Uniroyal 0402WGF2403TCE, 1% - RT ~404 кГц
+    ("82k", "R_0402_1005Metric"): "C4142",       # Uniroyal 0402WGF8202TCE, 1% - UVLO
+    ("56k", "R_0402_1005Metric"): "C25796",      # Uniroyal 0402WGF5602TCE, 1% - FB 5.28 В
+    ("470k", "R_0402_1005Metric"): "C25790",     # Uniroyal 0402WGF4703TCE, 1% - UVLO
+    ("8.2nF", "C_0402_1005Metric"): "C45186",    # FH 0402B822K500NT, 50 В, X7R - компенсация
+    ("82pF", "C_0402_1005Metric"): "C45501",     # FH 0402CG820J500NT, 50 В, C0G - компенсация
+    ("22uF", "C_1206_3216Metric"): "C12891",     # Samsung CL31A226KAHNNNE, 25 В, X5R, Basic
+    ("2.2uF 100V", "C_1210_3225Metric"): "C55151",  # Samsung CL32B225KCJSNNE, 100 В, X7R
+    ("100uF 63V", "CP_Elec_10x10"): "C28241",    # Lelon RVT1J101M1010, 63 В, 10x10
+    ("10uH", "L_TDK_SPM10065VT"): "C5119327",    # TDK SPM10065VT-100M-D, Isat 15 А
+    ("5A", "Fuse_Littelfuse_451_2410"): "C48467",  # Littelfuse 0451005.MRL, 5 А 125 В, быстрый
+    ("SMCJ24CA", "D_SMC"): "C151279",            # Littelfuse, двунаправленный TVS 1500 Вт
+    ("B560C", "D_SMC"): "C85100",                # Diodes B560C-13-F, 60 В 5 А
+    ("SMBJ5.0A", "D_SMB"): "C110528",            # Diodes SMBJ5.0A-13-F - TVS шины 5 В
+    ("BZT52C12", "D_SOD-123"): "C124196",        # Diodes BZT52C12-7-F - затвор P-FET
 }
 # Замены с той же распиновкой - на случай, когда штатной детали нет на складе.
 ALT = {
@@ -91,6 +110,8 @@ LCSC_ANY = {
     "ESP32-S3-WROOM-1-N16R8": "C2913202",  # Espressif, 16 МБ flash + 8 МБ octal PSRAM
     "MAX98357A": "C910544",  # Maxim MAX98357AETE+T, TQFN-16, 3 Вт класс D, I2S
     "ICS-43434": "C5656610", # TDK, LGA-6, I2S MEMS; снят с производства (EOL) - склад мал (~350)
+    "TPS54360B-Q1": "C2687968",  # TI TPS54360BQDDARQ1, SO-8 PowerPAD, 60 В 3.5 А, AEC-Q100
+    "DMP6023LE": "C154901",  # Diodes DMP6023LE-13, P-FET 60 В, SOT-223 - переполюсовка
 }
 # Требование к нагрузочной ёмкости кварца - по номиналу. Оно остаётся в примечании
 # даже когда номер известен: именно CL молча ломает плату при замене детали.
