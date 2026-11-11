@@ -1,0 +1,28 @@
+[package]
+name = "voiceunit-test"
+version = "0.3.0"
+edition = "2021"
+resolver = "2"
+rust-version = "1.77"
+
+[[bin]]
+name = "voiceunit-test"
+harness = false # do not use the built-in cargo test harness -> resolve rust-analyzer errors
+
+[profile.release]
+opt-level = "s"
+# Один codegen unit - меньше объектных файлов в команде линковки: на Windows
+# аргументы линковки esp-idf упираются в лимит 32 КБ у CreateProcess.
+codegen-units = 1
+
+[profile.dev]
+debug = true
+opt-level = "z"
+
+[dependencies]
+log = "0.4"
+anyhow = "1"
+esp-idf-svc = "0.51"
+
+[build-dependencies]
+embuild = "0.33"

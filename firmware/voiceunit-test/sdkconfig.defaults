@@ -1,0 +1,26 @@
+# Rust main task needs a bigger stack than the default.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=20000
+CONFIG_FREERTOS_HZ=1000
+
+# ESP32-S3-WROOM-1-N16R8: 16 MB quad flash + 8 MB octal PSRAM.
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+CONFIG_SPIRAM_USE_MALLOC=y
+
+# Console on the native USB (USB-Serial/JTAG): UART0 pins IO43/IO44 go to the
+# J4 header and stay free for the loopback test.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+
+# Wi-Fi + std pull the app past the default 1 MB factory partition. Absolute
+# path: ESP-IDF resolves it relative to its generated build dir.
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="C:/Users/gravi/Documents/rust/autoprobe/firmware/voiceunit-test/partitions.csv"
+
+# Web page from phones/laptops: browsers send long request headers.
+CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024
+CONFIG_HTTPD_MAX_URI_LEN=512

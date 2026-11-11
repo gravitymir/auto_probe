@@ -1,0 +1,23 @@
+[build]
+target = "xtensa-esp32s3-espidf"
+# Windows MAX_PATH: вложенные пути сборки ESP-IDF вылезают за 260 символов
+# в обычном target/, поэтому артефакты - в коротком пути.
+target-dir = "C:/ev"
+
+[target.xtensa-esp32s3-espidf]
+linker = "ldproxy"
+runner = "espflash flash --monitor --flash-size 16mb --partition-table partitions.csv"
+rustflags = ["--cfg", "espidf_time64"]
+
+[unstable]
+build-std = ["std", "panic_abort"]
+
+[env]
+MCU = "esp32s3"
+# ESP-IDF уже скачан глобально (~/.espressif/esp-idf/v5.2.2) - его и берём.
+ESP_IDF_VERSION = "v5.2.2"
+ESP_IDF_TOOLS_INSTALL_DIR = "global"
+ESP_IDF_SDKCONFIG_DEFAULTS = { value = "sdkconfig.defaults", relative = true }
+CARGO_WORKSPACE_DIR = { value = "", relative = true }
+PYTHONUTF8 = "1"
+PYTHONIOENCODING = "utf-8"
