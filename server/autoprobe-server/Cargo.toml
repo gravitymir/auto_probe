@@ -1,0 +1,8 @@
+[package]
+name = "autoprobe-server"
+version = "0.1.0"
+edition = "2021"
+
+# Сервер площадки для модулей auto_probe. WebSocket - tungstenite (синхронный, без tokio).
+[dependencies]
+tungstenite = "0.26"
