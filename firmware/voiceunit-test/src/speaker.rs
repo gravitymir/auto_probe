@@ -10,7 +10,7 @@
 //! вдвое меньший ток ценой 3 дБ.
 
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU8, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -29,12 +29,32 @@ const AMP_MAX: f32 = 0.7;
 pub const LISTENING: &[u8] = include_bytes!("../assets/listening.pcm");
 pub const NO_WIFI: &[u8] = include_bytes!("../assets/no_wifi.pcm");
 pub const SERVER_DOWN: &[u8] = include_bytes!("../assets/server_down.pcm");
+pub const USB_ON: &[u8] = include_bytes!("../assets/usb_on.pcm"); // «USB speaker on.»
+pub const USB_OFF: &[u8] = include_bytes!("../assets/usb_off.pcm"); // «Switching back, one moment.»
 pub const READY: &[u8] = include_bytes!("../assets/ready.pcm"); // «Connected.» (голос сервера, prompts/ready)
 
 static BUF: Mutex<VecDeque<i16>> = Mutex::new(VecDeque::new());
 static VOLUME: AtomicU8 = AtomicU8::new(60);
 /// Звук играет (буфер не пуст или только что опустел).
 static BUSY: AtomicBool = AtomicBool::new(false);
+/// Когда последний раз положили звук: поток (USB, радио) ещё идёт или кончился.
+static LAST_PUSH: Mutex<Option<Instant>> = Mutex::new(None);
+/// Запас против рывков потока: играть начинаем, когда накопилось 60 мс. Без него
+/// USB-звук (кусками по 10 мс, неровно) прерывался тишиной посреди кадра - щелчки.
+const PREFILL: usize = RATE as usize * 60 / 1000;
+/// Поток считается законченным, если нового звука нет дольше этого.
+const STREAM_GAP: Duration = Duration::from_millis(40);
+
+/// Диагностика (в телеметрию): сколько раз поток иссяк посреди звука, сколько
+/// отсчётов не влезло в буфер, самый большой пик после громкости (0..32767).
+pub static UNDERRUNS: AtomicU32 = AtomicU32::new(0);
+pub static OVERFLOW: AtomicU32 = AtomicU32::new(0);
+pub static PEAK: AtomicU32 = AtomicU32::new(0);
+
+/// Сколько отсчётов ждёт в буфере (USB держит задержку небольшой).
+pub fn queued() -> usize {
+    BUF.lock().unwrap().len()
+}
 
 pub fn volume() -> u8 {
     VOLUME.load(Ordering::Relaxed)
@@ -51,9 +71,11 @@ pub fn busy() -> bool {
 
 /// 16-битные отсчёты (LE) в буфер; не влезает - лишнее теряется.
 pub fn push_pcm(bytes: &[u8]) {
+    *LAST_PUSH.lock().unwrap() = Some(Instant::now());
     let mut b = BUF.lock().unwrap();
     for s in bytes.chunks_exact(2) {
         if b.len() >= CAP {
+            OVERFLOW.fetch_add(1, Ordering::Relaxed);
             break;
         }
         b.push_back(i16::from_le_bytes([s[0], s[1]]));
@@ -89,12 +111,32 @@ pub fn run<P: OutputPin>(mut tx: I2sDriver<'static, I2sTx>, mut sd: PinDriver<'s
     let mut out = vec![0u8; FRAME * 4]; // стерео: одинаковый отсчёт в оба канала
     let mut last_sound = Instant::now() - Duration::from_secs(10);
     let mut amp_on = false;
+    let mut playing = false; // идёт поток - не тишина
     loop {
+        let streaming = LAST_PUSH.lock().unwrap().is_some_and(|t| t.elapsed() < STREAM_GAP);
         let n = {
             let mut b = BUF.lock().unwrap();
-            let n = b.len().min(FRAME);
+            // старт: накопился запас - или звук положили целиком и больше не кладут
+            if !playing && (b.len() >= PREFILL || (!b.is_empty() && !streaming)) {
+                playing = true;
+            }
+            let n = if !playing {
+                0
+            } else if b.len() >= FRAME || !streaming {
+                b.len().min(FRAME) // целый кадр - или хвост законченного звука
+            } else {
+                // поток идёт, а кадра не набралось - не рвать звук тишиной на
+                // середине кадра, а снова набрать запас (один раз, а не щелчок на
+                // каждом рывке)
+                playing = false;
+                UNDERRUNS.fetch_add(1, Ordering::Relaxed);
+                0
+            };
             for (k, s) in b.drain(..n).enumerate() {
                 frame[k] = s;
+            }
+            if b.is_empty() && !streaming {
+                playing = false;
             }
             n
         };
@@ -117,6 +159,7 @@ pub fn run<P: OutputPin>(mut tx: I2sDriver<'static, I2sTx>, mut sd: PinDriver<'s
         let g = VOLUME.load(Ordering::Relaxed) as f32 / 100.0 * AMP_MAX;
         for (k, s) in frame.iter().enumerate() {
             let v = ((*s as f32) * g) as i16;
+            PEAK.fetch_max(v.unsigned_abs() as u32, Ordering::Relaxed);
             let b = v.to_le_bytes();
             out[k * 4..k * 4 + 2].copy_from_slice(&b);
             out[k * 4 + 2..k * 4 + 4].copy_from_slice(&b);

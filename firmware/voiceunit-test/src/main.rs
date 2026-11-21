@@ -23,6 +23,7 @@
 //! Нет связи: 3 попытки через 5 с, потом пауза 30 с (BOOT - попробовать сразу).
 //! Динамик (src/speaker.rs): речь и радио от сервера, «слушаю» после «София»,
 //! «Connected» при подключении к серверу,
+//! USB-колонка с микрофоном (src/usbaudio.rs) - по команде сервера, выход перезагрузкой,
 //! «нет сети» и «сервер недоступен» - из прошивки (assets/).
 //!
 //! Запись по голосу: оба микрофона громче своего фона на VAD_START дБ (2 замера
@@ -37,6 +38,7 @@
 
 mod site;
 mod speaker;
+mod usbaudio;
 mod wakeword;
 
 use std::fmt::Write as _;
@@ -111,6 +113,10 @@ static WAKE_READY: AtomicBool = AtomicBool::new(false);
 /// «София» услышана, мик-задача ещё не начала запись команды.
 static WAKE_PENDING: AtomicBool = AtomicBool::new(false);
 static WAKE_COUNT: AtomicU32 = AtomicU32::new(0);
+/// Звук от сервера не играть: от «София» до конца записи команды. Сервер шлёт
+/// радио на 0.4 с вперёд и о «София» узнаёт не сразу - уже отправленный кусок
+/// музыки иначе звучал бы сразу после «listening» (заикание радио).
+static SERVER_AUDIO_MUTED: AtomicBool = AtomicBool::new(false);
 /// Команда после ключевого слова: не дольше 8 с, тишина в первые 2 с не считается
 /// (после «София» человек обычно делает паузу), конец - тишина дольше 1.5 с.
 const WAKE_REC_MAX_MS: u32 = 8_000;
@@ -169,6 +175,8 @@ fn main() {
 }
 
 fn run() -> anyhow::Result<()> {
+    // после режима USB-колонки USB мог остаться у аудио-контроллера - вернуть COM-порту
+    usbaudio::usb_back_to_serial_jtag();
     let p = Peripherals::take()?;
 
     // Динамик: усилитель выключен, пока нечего играть (включает задача динамика).
@@ -370,6 +378,9 @@ fn run() -> anyhow::Result<()> {
         FreeRtos::delay_ms(100);
         tick += 1;
         // Wi-Fi площадки: следим за связью, при потере - переподключение раз в 10 с.
+        if tick % 10 == 0 {
+            usbaudio::watch(); // режим USB-колонки: кабель выдернули - выход
+        }
         if tick % 20 == 0 {
             let up = wifi.is_connected().unwrap_or(false);
             if wifi_was_up && !up {
@@ -426,6 +437,9 @@ fn run() -> anyhow::Result<()> {
         let loop_ok = if tick % 5 == 0 { Some(uart_loopback(&mut uart)) } else { None };
         {
             let mut s = state.lock().unwrap();
+            if pressed && !boot_was && usbaudio::is_on() {
+                usbaudio::exit("BOOT"); // BOOT в режиме USB-колонки - выход
+            }
             if pressed && !boot_was {
                 s.presses += 1;
                 SERVER_NOW.store(true, Ordering::Relaxed);
@@ -572,14 +586,15 @@ fn mic_task(
         let gain = REC_GAIN.load(Ordering::Relaxed) as i64;
         let (mut sa, mut sb, mut acc) = (0f64, 0f64, 0i64);
         let mut enc = Vec::with_capacity(CHUNK / 2);
-        let mut mono = Vec::with_capacity(if wake_tx.is_some() { CHUNK } else { 0 });
+        let need_mono = wake_tx.is_some() || usbaudio::is_on();
+        let mut mono = Vec::with_capacity(if need_mono { CHUNK } else { 0 });
         for (k, f) in raw.chunks_exact(8).enumerate() {
             let a = i32::from_le_bytes([f[0], f[1], f[2], f[3]]) >> 8;
             let b = i32::from_le_bytes([f[4], f[5], f[6], f[7]]) >> 8;
             l.push(a);
             r.push(b);
-            if wake_tx.is_some() {
-                // ключевому слову - 16 кГц, среднее двух микрофонов, то же усиление
+            if need_mono {
+                // ключевому слову и USB-микрофону - 16 кГц, среднее двух микрофонов
                 let v = (((a + b) as i64 / 2 * gain) >> 8).clamp(i16::MIN as i64, i16::MAX as i64);
                 mono.push(v as i16);
             }
@@ -610,6 +625,7 @@ fn mic_task(
                 }
             }
         }
+        usbaudio::feed_mic(&mono); // режим USB-колонки: микрофон для ПК
         if let Some(tx) = wake_tx.as_ref() {
             // задача ключевого слова отстаёт - кусок теряется, микрофон не ждёт
             if let Err(TrySendError::Disconnected(_)) = tx.try_send(mono) {
@@ -628,6 +644,10 @@ fn mic_task(
             *fb = if dbb < *fb { *fb + (dbb - *fb) * 0.05 } else { *fb + 0.03 };
         }
         let (start, stop) = (VAD_START.load(Ordering::Relaxed) as f32, VAD_STOP.load(Ordering::Relaxed) as f32);
+        // is_on() - первым: иначе swap съел бы «София» и в обычном режиме
+        if usbaudio::is_on() && WAKE_PENDING.swap(false, Ordering::Relaxed) {
+            usbaudio::exit("«Sophia»"); // «София» в режиме USB-колонки - выход
+        }
         if WAKE_PENDING.swap(false, Ordering::Relaxed) {
             let n = WAKE_COUNT.load(Ordering::Relaxed);
             link_send(&link, WsOut::Text(format!("{{\"type\":\"wake\",\"word\":\"sophia\",\"n\":{n}}}")));
@@ -637,6 +657,7 @@ fn mic_task(
                 recs += 1;
                 link_send(&link, WsOut::Text(format!("{{\"type\":\"rec\",\"state\":\"stop\",\"ms\":{rec_ms}}}")));
             }
+            SERVER_AUDIO_MUTED.store(true, Ordering::Relaxed);
             speaker::say(speaker::LISTENING); // «слушаю» - можно говорить команду
             wake_wait = true;
         }
@@ -685,6 +706,7 @@ fn mic_task(
                 quiet_ms >= VAD_HANG.load(Ordering::Relaxed) || rec_ms >= REC_MAX_MS || !VAD_ON.load(Ordering::Relaxed)
             };
             if done {
+                SERVER_AUDIO_MUTED.store(false, Ordering::Relaxed); // команда сказана
                 rec = false;
                 recs += 1;
                 link_send(&link, WsOut::Text(format!("{{\"type\":\"rec\",\"state\":\"stop\",\"ms\":{rec_ms}}}")));
@@ -1117,7 +1139,11 @@ fn ws_session(addr: SocketAddr, id: &str, state: &Shared, link: &Link) -> (bool,
                     apply_command(&String::from_utf8_lossy(&payload));
                     SEND_NOW.store(true, Ordering::Relaxed); // подтвердить сразу
                 }
-                0x2 => speaker::push_pcm(&payload), // речь/радио: 16 бит, 16 кГц, моно
+                // речь/радио: 16 бит, 16 кГц, моно (не во время команды после «София»)
+                // и не в режиме USB-колонки: тогда динамик - у компьютера
+                0x2 if !SERVER_AUDIO_MUTED.load(Ordering::Relaxed) && !usbaudio::is_on() => {
+                    speaker::push_pcm(&payload)
+                }
                 0x8 => return (true, "server closed websocket".into()),
                 0x9 => {
                     if let Err(e) = ws_send(&mut c, 0xA, &payload) {
@@ -1211,7 +1237,7 @@ fn telemetry_json(state: &Shared, id: &str) -> String {
          \"mic_l_db\":{:.1},\"mic_r_db\":{:.1},\"boot_presses\":{},\"led\":\"{}\",\
          \"uart_loop\":{},\"listening\":{},\"psram_free_kb\":{},\
          \"rec\":{},\"recs\":{},\"floor_l\":{:.1},\"floor_r\":{:.1},\
-         \"vad\":{},\"v_start\":{},\"v_stop\":{},\"v_hang\":{},\"v_gain\":{},\"vol\":{},\"wake\":{}}}",
+         \"vad\":{},\"v_start\":{},\"v_stop\":{},\"v_hang\":{},\"v_gain\":{},\"vol\":{},\"wake\":{},\"usb\":{},\"usb_host\":{},         \"spk_under\":{},\"spk_over\":{},\"spk_peak\":{},\"spk_queue\":{},\"usb_rx\":{},\"usb_drop\":{}}}",
         json_str(id),
         env!("CARGO_PKG_VERSION"),
         up,
@@ -1234,7 +1260,15 @@ fn telemetry_json(state: &Shared, id: &str) -> String {
         VAD_HANG.load(Ordering::Relaxed),
         REC_GAIN.load(Ordering::Relaxed),
         speaker::volume(),
-        WAKE_READY.load(Ordering::Relaxed)
+        WAKE_READY.load(Ordering::Relaxed),
+        usbaudio::is_on(),
+        usbaudio::host_connected(),
+        speaker::UNDERRUNS.load(Ordering::Relaxed),
+        speaker::OVERFLOW.load(Ordering::Relaxed),
+        speaker::PEAK.swap(0, Ordering::Relaxed),
+        speaker::queued(),
+        usbaudio::RX_BYTES.load(Ordering::Relaxed),
+        usbaudio::DROPPED.load(Ordering::Relaxed)
     )
 }
 
@@ -1267,6 +1301,16 @@ fn apply_command(msg: &str) {
     }
     if let Some(f) = json_num(msg, "tone") {
         speaker::tone(f.clamp(50.0, 8000.0), json_num(msg, "ms").unwrap_or(300.0).max(0.0) as u32);
+    }
+    // режим USB-колонки: {"usb":1} - войти (если плату видит компьютер), {"usb":0} - выйти
+    match json_num(msg, "usb") {
+        Some(v) if v != 0.0 => {
+            if let Err(e) = usbaudio::start() {
+                log::warn!("USB speaker mode refused: {e}");
+            }
+        }
+        Some(_) if usbaudio::is_on() => usbaudio::exit("server"),
+        _ => {}
     }
     if let Some(i) = msg.find("\"led\":\"") {
         let v = &msg[i + 7..];
