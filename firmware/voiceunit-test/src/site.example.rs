@@ -1,9 +1,11 @@
 // Шаблон настроек площадки: скопировать в site.rs и вписать свои значения.
-// site.rs в git не попадает (там пароль Wi-Fi).
+// site.rs в git не попадает (там пароли Wi-Fi).
 
-pub const WIFI_SSID: &str = "my-network";
-pub const WIFI_PASS: &str = "my-password";
+/// Сети Wi-Fi по приоритету: (SSID, пароль, адрес сервера в этой сети).
+/// Плата подключается к первой из списка, которую видит в эфире.
+pub const WIFI: &[(&str, &str, &str)] = &[
+    ("my-network", "my-password", "192.168.1.100"),
+];
 
-/// Сервер в локальной сети.
-pub const SERVER_HOST: &str = "192.168.1.100";
+/// Порт сервера (одинаковый во всех сетях).
 pub const SERVER_PORT: u16 = 7600;

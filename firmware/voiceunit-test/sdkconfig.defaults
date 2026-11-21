@@ -19,8 +19,17 @@ CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 # Wi-Fi + std pull the app past the default 1 MB factory partition. Absolute
 # path: ESP-IDF resolves it relative to its generated build dir.
 CONFIG_PARTITION_TABLE_CUSTOM=y
-CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="C:/Users/gravi/Documents/rust/autoprobe/firmware/voiceunit-test/partitions.csv"
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="C:/Users/gravi/Documents/auto_probe/firmware/voiceunit-test/partitions.csv"
 
 # Web page from phones/laptops: browsers send long request headers.
 CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024
 CONFIG_HTTPD_MAX_URI_LEN=512
+
+# Ключевое слово «Sophia»: модель WakeNet9 в разделе flash "model" (partitions.csv),
+# прошивается отдельно файлом srmodels.bin. Нужна PSRAM (выше).
+CONFIG_SR_WN_WN9_SOPHIA_TTS=y
+CONFIG_MODEL_IN_FLASH=y
+
+# Внутренней RAM на стеки задач не хватало ("pthread: Failed to create task!"):
+# буферы Wi-Fi и lwIP - в PSRAM, внутренняя память остаётся задачам и AFE.
+CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y

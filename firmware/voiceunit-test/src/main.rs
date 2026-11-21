@@ -15,18 +15,29 @@
 //!   BOOT IO0 - кнопка на землю;
 //!   TX IO43, RX IO44 - UART на J4 (перемычка TX-RX = проверка петлёй).
 //!
-//! Сеть: станция в Wi-Fi площадки (src/site.rs, не в git) + своя точка доступа
+//! Сеть: станция в Wi-Fi площадки - первая видимая из списка src/site.rs (не в git),
+//! у каждой сети свой адрес сервера, - плюс своя точка доступа
 //! как запасной вход. Сервер площадки: постоянное WebSocket-соединение
 //! ws://SERVER/ws?id=..., по строке JSON в кадре: плата шлёт телеметрию раз в 1 с
 //! и сразу при событиях, сервер шлёт команды {"type":"cmd","led":...} мгновенно.
-//! Нет связи: 3 попытки через 5 с, потом пауза 10 минут (BOOT - попробовать сразу).
+//! Нет связи: 3 попытки через 5 с, потом пауза 30 с (BOOT - попробовать сразу).
+//! Динамик (src/speaker.rs): речь и радио от сервера, «слушаю» после «София»,
+//! «Connected and ready» при подключении к серверу,
+//! «нет сети» и «сервер недоступен» - из прошивки (assets/).
 //!
 //! Запись по голосу: оба микрофона громче своего фона на VAD_START дБ (2 замера
 //! по 32 мс подряд) - старт, звук уходит на сервер бинарными кадрами WebSocket:
 //! моно, 8 кГц, μ-law (8 КБ/с), с предзаписью 0.5 с. Оба тише фона + VAD_STOP дБ
 //! дольше VAD_HANG мс - стоп. События - текстом {"type":"rec","state":...}.
+//!
+//! Ключевое слово «София» (ESP-SR WakeNet9, src/wakeword.rs, модель - раздел flash
+//! "model"): услышана - {"type":"wake",...} и запись команды с "reason":"wake",
+//! её сервер распознаёт и выполняет. Пока ключевое слово работает, запись просто
+//! по громкости не включается; нет модели во flash - работает как раньше.
 
 mod site;
+mod speaker;
+mod wakeword;
 
 use std::fmt::Write as _;
 use std::io::{Read, Write as _};
@@ -64,14 +75,21 @@ const LED_OFF: u8 = 0;
 const LED_ON: u8 = 1;
 const LED_BLINK: u8 = 2;
 static LED_MODE: AtomicU8 = AtomicU8::new(LED_BLINK);
-/// BOOT нажата - не ждать 10 минут, связаться с сервером сразу.
+/// BOOT нажата - не ждать паузы, связаться с сервером сразу.
 static SERVER_NOW: AtomicBool = AtomicBool::new(false);
 /// Что-то поменялось (кнопка, светодиод) - отправить телеметрию, не дожидаясь секунды.
 static SEND_NOW: AtomicBool = AtomicBool::new(false);
+/// Сказать «Connected and ready» при следующем подключении к серверу.
+static SAY_READY: AtomicBool = AtomicBool::new(true);
 const TELEMETRY_PERIOD: Duration = Duration::from_secs(1);
 const RETRY_DELAY: Duration = Duration::from_secs(5);
 const RETRY_COUNT: u32 = 3;
-const SERVER_BACKOFF: Duration = Duration::from_secs(600);
+const SERVER_BACKOFF: Duration = Duration::from_secs(30);
+/// Адрес сервера в той сети из site::WIFI, к которой подключились.
+static SERVER_HOST: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+fn server_host() -> &'static str {
+    SERVER_HOST.get().map(String::as_str).unwrap_or("")
+}
 
 // Запись по голосу; меняется командой {"type":"cfg",...} с сервера.
 static VAD_ON: AtomicBool = AtomicBool::new(true);
@@ -82,6 +100,18 @@ static REC_GAIN: AtomicU32 = AtomicU32::new(8); // усиление 24 -> 16 б�
 const CHUNK_MS: u32 = CHUNK as u32 * 1000 / RATE;
 const PREROLL: usize = 16; // кусков по 32 мс = 0.5 с до старта
 const REC_MAX_MS: u32 = 60_000;
+
+// Ключевое слово «София».
+/// Задача ключевого слова запущена (модель найдена) - запись только после него.
+static WAKE_READY: AtomicBool = AtomicBool::new(false);
+/// «София» услышана, мик-задача ещё не начала запись команды.
+static WAKE_PENDING: AtomicBool = AtomicBool::new(false);
+static WAKE_COUNT: AtomicU32 = AtomicU32::new(0);
+/// Команда после ключевого слова: не дольше 8 с, тишина в первые 2 с не считается
+/// (после «София» человек обычно делает паузу), конец - тишина дольше 1.5 с.
+const WAKE_REC_MAX_MS: u32 = 8_000;
+const WAKE_GRACE_MS: u32 = 2_000;
+const WAKE_HANG_MS: u32 = 1_500;
 
 #[derive(Default)]
 struct State {
@@ -122,14 +152,36 @@ enum WsOut {
 /// Очередь в живой WebSocket-сеанс; None - связи нет, отправленное теряется.
 type Link = Arc<Mutex<Option<SyncSender<WsOut>>>>;
 
-fn main() -> anyhow::Result<()> {
+fn main() {
     sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
+    // Старт не удался (не хватило памяти на задачу и т.п.) - не висеть полуживой
+    // без Wi-Fi, а перезагрузиться.
+    if let Err(e) = run() {
+        log::error!("startup failed: {e:?} - restarting in 3 s");
+        FreeRtos::delay_ms(3000);
+        unsafe { sys::esp_restart() };
+    }
+}
+
+fn run() -> anyhow::Result<()> {
     let p = Peripherals::take()?;
 
-    // Усилитель - выключен (динамика нет).
+    // Динамик: усилитель выключен, пока нечего играть (включает задача динамика).
     let mut amp_sd = PinDriver::output(p.pins.gpio12)?;
     amp_sd.set_low()?;
+    let mut spk = I2sDriver::new_std_tx(
+        p.i2s1,
+        &speaker::config(),
+        p.pins.gpio14, // BCLK
+        p.pins.gpio13, // DIN
+        Option::<AnyIOPin>::None,
+        p.pins.gpio21, // LRCLK
+    )?;
+    spk.tx_enable()?;
+    std::thread::Builder::new()
+        .stack_size(6 * 1024)
+        .spawn(move || speaker::run(spk, amp_sd))?;
     let mut led = PinDriver::output(p.pins.gpio48)?;
     led.set_high()?;
     let mut boot = PinDriver::input(p.pins.gpio0)?;
@@ -148,25 +200,30 @@ fn main() -> anyhow::Result<()> {
     let sysloop = EspSystemEventLoop::take()?;
     let nvs = EspDefaultNvsPartition::take()?;
     let mut wifi = BlockingWifi::wrap(EspWifi::new(p.modem, sysloop.clone(), Some(nvs))?, sysloop)?;
-    wifi.set_configuration(&Configuration::Mixed(
-        ClientConfiguration {
-            ssid: site::WIFI_SSID.try_into().unwrap(),
-            password: site::WIFI_PASS.try_into().unwrap(),
-            ..Default::default()
-        },
-        AccessPointConfiguration {
-            ssid: ssid.as_str().try_into().unwrap(),
-            password: AP_PASS.try_into().unwrap(),
-            auth_method: AuthMethod::WPA2Personal,
-            channel: 6,
-            max_connections: 4,
-            ..Default::default()
-        },
-    ))?;
+    let mixed = |sta_ssid: &str, sta_pass: &str| {
+        Configuration::Mixed(
+            ClientConfiguration {
+                ssid: sta_ssid.try_into().unwrap(),
+                password: sta_pass.try_into().unwrap(),
+                ..Default::default()
+            },
+            AccessPointConfiguration {
+                ssid: ssid.as_str().try_into().unwrap(),
+                password: AP_PASS.try_into().unwrap(),
+                auth_method: AuthMethod::WPA2Personal,
+                channel: 6,
+                max_connections: 4,
+                ..Default::default()
+            },
+        )
+    };
+    let (first_ssid, first_pass, first_host) = site::WIFI.first().copied().unwrap_or(("", "", ""));
+    wifi.set_configuration(&mixed(first_ssid, first_pass))?;
     wifi.start()?;
     // Без энергосбережения Wi-Fi: входящий кадр не ждёт, пока модем "проснётся"
     // (до 100-300 мс). Плата питается от USB/машины - экономить нечего.
     unsafe { sys::esp_wifi_set_ps(sys::wifi_ps_type_t_WIFI_PS_NONE) };
+    let mut seen: Vec<String> = Vec::new();
     match wifi.scan() {
         Ok(mut aps) => {
             aps.sort_by(|a, b| b.signal_strength.cmp(&a.signal_strength));
@@ -174,25 +231,48 @@ fn main() -> anyhow::Result<()> {
             for ap in aps.iter().take(6) {
                 let _ = writeln!(summary, "          {:>4} dBm  ch{:<2}  {}", ap.signal_strength, ap.channel, ap.ssid);
             }
+            seen = aps.iter().map(|ap| ap.ssid.to_string()).collect();
         }
         Err(e) => {
             let _ = writeln!(summary, "WIFI    : scan FAILED: {e}");
         }
     }
-    let sta_ip = match wifi.connect().and_then(|_| wifi.wait_netif_up()) {
-        Ok(()) => {
-            let ip = wifi.wifi().sta_netif().get_ip_info()?.ip.to_string();
-            let _ = writeln!(summary, "STA     : \"{}\" -> http://{ip}", site::WIFI_SSID);
-            ip
+    // Сети из списка, которые видны в эфире, по приоритету списка. Скан пустой
+    // (сбой или сеть скрытая) - пробуем весь список подряд.
+    let mut tries: Vec<(&str, &str, &str)> =
+        site::WIFI.iter().copied().filter(|(s, _, _)| seen.iter().any(|x| x == s)).collect();
+    if tries.is_empty() {
+        tries = site::WIFI.to_vec();
+    }
+    let mut sta_ip = String::new();
+    let mut server_host = first_host;
+    let mut configured = first_ssid;
+    for (s, pass, host) in tries {
+        if s != configured {
+            let _ = wifi.disconnect();
+            wifi.set_configuration(&mixed(s, pass))?;
+            configured = s;
         }
-        Err(e) => {
-            let _ = writeln!(summary, "STA     : \"{}\" not connected ({e})", site::WIFI_SSID);
-            String::new()
+        server_host = host; // при неудаче со всеми - адрес последней пробованной
+        match wifi.connect().and_then(|_| wifi.wait_netif_up()) {
+            Ok(()) => {
+                let ip = wifi.wifi().sta_netif().get_ip_info()?.ip.to_string();
+                let _ = writeln!(summary, "STA     : \"{s}\" -> http://{ip}");
+                sta_ip = ip;
+                break;
+            }
+            Err(e) => {
+                let _ = writeln!(summary, "STA     : \"{s}\" not connected ({e})");
+            }
         }
-    };
+    }
+    let _ = SERVER_HOST.set(server_host.to_string());
+    if sta_ip.is_empty() {
+        speaker::say(speaker::NO_WIFI);
+    }
     let ip = wifi.wifi().ap_netif().get_ip_info()?.ip;
     let _ = writeln!(summary, "AP      : \"{ssid}\" password \"{AP_PASS}\" -> http://{ip}");
-    let _ = writeln!(summary, "SERVER  : http://{}:{}", site::SERVER_HOST, site::SERVER_PORT);
+    let _ = writeln!(summary, "SERVER  : http://{}:{}", server_host, site::SERVER_PORT);
 
     let state: Shared = Arc::new(Mutex::new(State {
         summary: summary.clone(),
@@ -219,11 +299,16 @@ fn main() -> anyhow::Result<()> {
     )?;
     mic.rx_enable()?;
     let link: Link = Arc::new(Mutex::new(None));
+    // Ключевое слово - своя задача: AFE считает тяжело, микрофон ждать не должен.
+    let (wake_tx, wake_rx) = sync_channel::<Vec<i16>>(16);
+    std::thread::Builder::new()
+        .stack_size(24 * 1024) // AFE/WakeNet едят стек при срабатывании
+        .spawn(move || wake_task(wake_rx))?;
     {
         let (state, audio, link) = (state.clone(), audio.clone(), link.clone());
         std::thread::Builder::new()
             .stack_size(16 * 1024)
-            .spawn(move || mic_task(mic, state, audio, link))?;
+            .spawn(move || mic_task(mic, state, audio, link, wake_tx))?;
     }
 
     // Звук в браузер: свой маленький сервер на порту 81.
@@ -244,6 +329,12 @@ fn main() -> anyhow::Result<()> {
             .spawn(move || server_task(state, id, link))?;
     }
 
+    log::info!(
+        "internal RAM free after start: {} KB (largest block {} KB)",
+        unsafe { sys::heap_caps_get_free_size(sys::MALLOC_CAP_INTERNAL) } / 1024,
+        unsafe { sys::heap_caps_get_largest_free_block(sys::MALLOC_CAP_INTERNAL) } / 1024
+    );
+
     let mut uart = UartDriver::new(
         p.uart1,
         p.pins.gpio43,
@@ -259,12 +350,17 @@ fn main() -> anyhow::Result<()> {
     let mut boot_was = false;
     let mut tick = 0u32;
     let mut last_reconnect = Instant::now();
+    let mut wifi_was_up = !state.lock().unwrap().sta_ip.is_empty();
     loop {
         FreeRtos::delay_ms(100);
         tick += 1;
         // Wi-Fi площадки: следим за связью, при потере - переподключение раз в 30 с.
         if tick % 20 == 0 {
             let up = wifi.is_connected().unwrap_or(false);
+            if wifi_was_up && !up {
+                speaker::say(speaker::NO_WIFI); // связь пропала - сказать один раз
+            }
+            wifi_was_up = up;
             if !up && last_reconnect.elapsed() > Duration::from_secs(30) {
                 last_reconnect = Instant::now();
                 let _ = wifi.connect().and_then(|_| wifi.wait_netif_up());
@@ -380,11 +476,20 @@ fn psram_report(out: &mut String) {
     );
 }
 
-fn mic_task(mut mic: I2sDriver<'static, I2sRx>, state: Shared, audio: Audio, link: Link) {
+fn mic_task(
+    mut mic: I2sDriver<'static, I2sRx>,
+    state: Shared,
+    audio: Audio,
+    link: Link,
+    wake_tx: SyncSender<Vec<i16>>,
+) {
     let mut raw = vec![0u8; CHUNK * 2 * 4];
+    let mut wake_tx = Some(wake_tx);
     // детектор речи
     let mut floor: Option<(f32, f32)> = None;
     let mut rec = false;
+    let mut rec_wake = false; // идущая запись - команда после «София»
+    let mut wake_wait = false; // «София» услышана, ждём, пока доиграет «слушаю»
     let mut above = 0u32;
     let mut quiet_ms = 0u32;
     let mut rec_ms = 0u32;
@@ -415,11 +520,17 @@ fn mic_task(mut mic: I2sDriver<'static, I2sRx>, state: Shared, audio: Audio, lin
         let gain = REC_GAIN.load(Ordering::Relaxed) as i64;
         let (mut sa, mut sb, mut acc) = (0f64, 0f64, 0i64);
         let mut enc = Vec::with_capacity(CHUNK / 2);
+        let mut mono = Vec::with_capacity(if wake_tx.is_some() { CHUNK } else { 0 });
         for (k, f) in raw.chunks_exact(8).enumerate() {
             let a = i32::from_le_bytes([f[0], f[1], f[2], f[3]]) >> 8;
             let b = i32::from_le_bytes([f[4], f[5], f[6], f[7]]) >> 8;
             l.push(a);
             r.push(b);
+            if wake_tx.is_some() {
+                // ключевому слову - 16 кГц, среднее двух микрофонов, то же усиление
+                let v = (((a + b) as i64 / 2 * gain) >> 8).clamp(i16::MIN as i64, i16::MAX as i64);
+                mono.push(v as i16);
+            }
             sa += (a as f64) * (a as f64);
             sb += (b as f64) * (b as f64);
             // моно 8 кГц: среднее двух микрофонов по двум соседним отсчётам
@@ -447,30 +558,60 @@ fn mic_task(mut mic: I2sDriver<'static, I2sRx>, state: Shared, audio: Audio, lin
                 }
             }
         }
+        if let Some(tx) = wake_tx.as_ref() {
+            // задача ключевого слова отстаёт - кусок теряется, микрофон не ждёт
+            if let Err(TrySendError::Disconnected(_)) = tx.try_send(mono) {
+                wake_tx = None; // модели нет - задача закончилась
+            }
+        }
         // --- запись по голосу
         let db = |s: f64| 20.0 * ((s / CHUNK as f64).sqrt().max(1.0) as f32 / FULL).log10();
         let (da, dbb) = (db(sa), db(sb));
         let (fa, fb) = floor.get_or_insert((da, dbb));
         if !rec {
-            // фон: быстро вниз, медленно вверх (~0.3 дБ/с); во время записи не трогаем
-            *fa = if da < *fa { *fa + (da - *fa) * 0.5 } else { *fa + 0.01 };
-            *fb = if dbb < *fb { *fb + (dbb - *fb) * 0.5 } else { *fb + 0.01 };
+            // фон: вниз плавно (за ~0.6 с), вверх ~1 дБ/с; во время записи не трогаем.
+            // Резко вниз нельзя: фон садился на редкие провалы, и обычная тишина
+            // комнаты считалась речью - запись команды не кончалась до 8 с.
+            *fa = if da < *fa { *fa + (da - *fa) * 0.05 } else { *fa + 0.03 };
+            *fb = if dbb < *fb { *fb + (dbb - *fb) * 0.05 } else { *fb + 0.03 };
         }
         let (start, stop) = (VAD_START.load(Ordering::Relaxed) as f32, VAD_STOP.load(Ordering::Relaxed) as f32);
+        if WAKE_PENDING.swap(false, Ordering::Relaxed) {
+            let n = WAKE_COUNT.load(Ordering::Relaxed);
+            link_send(&link, WsOut::Text(format!("{{\"type\":\"wake\",\"word\":\"sophia\",\"n\":{n}}}")));
+            if rec {
+                // идущую запись - закрыть, команда пойдёт отдельной
+                rec = false;
+                recs += 1;
+                link_send(&link, WsOut::Text(format!("{{\"type\":\"rec\",\"state\":\"stop\",\"ms\":{rec_ms}}}")));
+            }
+            speaker::say(speaker::LISTENING); // «слушаю» - можно говорить команду
+            wake_wait = true;
+        }
+        // запись команды - когда «слушаю» доиграет, чтобы оно не попало в запись
+        let wake = wake_wait && !speaker::busy();
+        if wake {
+            wake_wait = false;
+            preroll.clear();
+        }
         if !rec {
-            above = if VAD_ON.load(Ordering::Relaxed) && da > *fa + start && dbb > *fb + start { above + 1 } else { 0 };
+            // без ключевого слова - старт по громкости, как раньше
+            let vad = VAD_ON.load(Ordering::Relaxed) && !WAKE_READY.load(Ordering::Relaxed);
+            above = if vad && da > *fa + start && dbb > *fb + start { above + 1 } else { 0 };
             preroll.push_back(enc);
             if preroll.len() > PREROLL {
                 preroll.pop_front();
             }
-            if above >= 2 {
+            if wake || above >= 2 {
                 rec = true;
+                rec_wake = wake;
                 quiet_ms = 0;
                 rec_ms = 0;
+                let reason = if wake { "\"reason\":\"wake\"," } else { "" };
                 link_send(
                     &link,
                     WsOut::Text(format!(
-                        "{{\"type\":\"rec\",\"state\":\"start\",\"rate\":8000,\"codec\":\"mulaw\",\
+                        "{{\"type\":\"rec\",\"state\":\"start\",{reason}\"rate\":8000,\"codec\":\"mulaw\",\
                          \"l_db\":{da:.1},\"r_db\":{dbb:.1},\"floor_l\":{:.1},\"floor_r\":{:.1}}}",
                         *fa, *fb
                     )),
@@ -483,8 +624,15 @@ fn mic_task(mut mic: I2sDriver<'static, I2sRx>, state: Shared, audio: Audio, lin
         } else {
             link_send(&link, WsOut::Bin(enc));
             rec_ms += CHUNK_MS;
-            quiet_ms = if da < *fa + stop && dbb < *fb + stop { quiet_ms + CHUNK_MS } else { 0 };
-            if quiet_ms >= VAD_HANG.load(Ordering::Relaxed) || rec_ms >= REC_MAX_MS || !VAD_ON.load(Ordering::Relaxed) {
+            // тишина - по двум микрофонам вместе: один шумный канал её не отменяет
+            let over = ((da - *fa) + (dbb - *fb)) / 2.0;
+            quiet_ms = if over < stop { quiet_ms + CHUNK_MS } else { 0 };
+            let done = if rec_wake {
+                (rec_ms > WAKE_GRACE_MS && quiet_ms >= WAKE_HANG_MS) || rec_ms >= WAKE_REC_MAX_MS
+            } else {
+                quiet_ms >= VAD_HANG.load(Ordering::Relaxed) || rec_ms >= REC_MAX_MS || !VAD_ON.load(Ordering::Relaxed)
+            };
+            if done {
                 rec = false;
                 recs += 1;
                 link_send(&link, WsOut::Text(format!("{{\"type\":\"rec\",\"state\":\"stop\",\"ms\":{rec_ms}}}")));
@@ -511,6 +659,33 @@ fn mic_task(mut mic: I2sDriver<'static, I2sRx>, state: Shared, audio: Audio, lin
             s.listening = listening;
             l.clear();
             r.clear();
+        }
+    }
+}
+
+/// Задача ключевого слова: кадры 16 кГц от микрофона -> AFE/WakeNet. Модели во
+/// flash нет - пишет причину в журнал и заканчивается (запись по громкости остаётся).
+fn wake_task(rx: std::sync::mpsc::Receiver<Vec<i16>>) {
+    let mut ww = match wakeword::WakeWord::new() {
+        Ok(w) => w,
+        Err(e) => {
+            log::warn!("wake word OFF: {e}");
+            return;
+        }
+    };
+    let n = ww.frame_len();
+    let mut buf: Vec<i16> = Vec::with_capacity(n * 2);
+    WAKE_READY.store(true, Ordering::Relaxed);
+    log::info!("wake word ON: say \"Sophia\"");
+    while let Ok(chunk) = rx.recv() {
+        buf.extend_from_slice(&chunk);
+        while buf.len() >= n {
+            if ww.process(&buf[..n]) {
+                let k = WAKE_COUNT.fetch_add(1, Ordering::Relaxed) + 1;
+                log::info!("wake word: Sophia ({k})");
+                WAKE_PENDING.store(true, Ordering::Relaxed);
+            }
+            buf.drain(..n);
         }
     }
 }
@@ -754,7 +929,7 @@ button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
 </div>
 <div class="card"><h2>Сеть и сервер</h2>
 <div class="m" id="net">—</div><div class="m" id="srv">—</div>
-<div class="val">Нажатие BOOT — связаться с сервером сразу, не дожидаясь 10 минут.</div></div>
+<div class="val">Нажатие BOOT — связаться с сервером сразу, не дожидаясь паузы 30 с.</div></div>
 <div class="card"><h2>Самопроверка</h2><pre id="sum">загрузка…</pre>
 <div class="val" id="up" style="margin-top:8px"></div></div>
 </main><script>
@@ -781,7 +956,7 @@ setInterval(poll,400);poll();
 /// Связь с сервером площадки по WebSocket. Нет связи - RETRY_COUNT попыток через
 /// RETRY_DELAY, потом пауза SERVER_BACKOFF (или до нажатия BOOT).
 fn server_task(state: Shared, id: String, link: Link) {
-    let addr: SocketAddr = match format!("{}:{}", site::SERVER_HOST, site::SERVER_PORT).parse() {
+    let addr: SocketAddr = match format!("{}:{}", server_host(), site::SERVER_PORT).parse() {
         Ok(a) => a,
         Err(e) => {
             state.lock().unwrap().server = format!("bad address: {e}");
@@ -790,6 +965,7 @@ fn server_task(state: Shared, id: String, link: Link) {
     };
     let mut next = Instant::now();
     let mut fails = 0u32;
+    let mut announced = false; // «сервер недоступен» уже сказано
     loop {
         FreeRtos::delay_ms(200);
         if SERVER_NOW.swap(false, Ordering::Relaxed) {
@@ -808,11 +984,17 @@ fn server_task(state: Shared, id: String, link: Link) {
         *link.lock().unwrap() = None;
         if was_up {
             fails = 0; // связь была - сразу пробуем восстановить
+            announced = false;
         }
         fails += 1;
         let mut s = state.lock().unwrap();
         if fails >= RETRY_COUNT {
-            s.server = format!("offline ({why}), retry in 10 min");
+            if !announced {
+                speaker::say(speaker::SERVER_DOWN); // один раз на каждый обрыв
+                SAY_READY.store(true, Ordering::Relaxed);
+                announced = true;
+            }
+            s.server = format!("offline ({why}), retry in 30 s");
             next = Instant::now() + SERVER_BACKOFF;
             fails = 0;
         } else {
@@ -859,7 +1041,11 @@ fn ws_session(addr: SocketAddr, id: &str, state: &Shared, link: &Link) -> (bool,
         return (false, "server refused websocket".into());
     }
     buf.drain(..head_end);
-    state.lock().unwrap().server = format!("online ws://{}:{}", site::SERVER_HOST, site::SERVER_PORT);
+    state.lock().unwrap().server = format!("online ws://{addr}");
+    // после старта и после объявленного обрыва - «Connected and ready»
+    if SAY_READY.swap(false, Ordering::Relaxed) {
+        speaker::say(speaker::READY);
+    }
     let _ = c.set_read_timeout(Some(Duration::from_millis(20)));
     let (tx, rx) = sync_channel::<WsOut>(64); // ~2 с звука
     *link.lock().unwrap() = Some(tx);
@@ -879,6 +1065,7 @@ fn ws_session(addr: SocketAddr, id: &str, state: &Shared, link: &Link) -> (bool,
                     apply_command(&String::from_utf8_lossy(&payload));
                     SEND_NOW.store(true, Ordering::Relaxed); // подтвердить сразу
                 }
+                0x2 => speaker::push_pcm(&payload), // речь/радио: 16 бит, 16 кГц, моно
                 0x8 => return (true, "server closed websocket".into()),
                 0x9 => {
                     if let Err(e) = ws_send(&mut c, 0xA, &payload) {
@@ -972,7 +1159,7 @@ fn telemetry_json(state: &Shared, id: &str) -> String {
          \"mic_l_db\":{:.1},\"mic_r_db\":{:.1},\"boot_presses\":{},\"led\":\"{}\",\
          \"uart_loop\":{},\"listening\":{},\"psram_free_kb\":{},\
          \"rec\":{},\"recs\":{},\"floor_l\":{:.1},\"floor_r\":{:.1},\
-         \"vad\":{},\"v_start\":{},\"v_stop\":{},\"v_hang\":{},\"v_gain\":{}}}",
+         \"vad\":{},\"v_start\":{},\"v_stop\":{},\"v_hang\":{},\"v_gain\":{},\"vol\":{},\"wake\":{}}}",
         json_str(id),
         env!("CARGO_PKG_VERSION"),
         up,
@@ -993,7 +1180,9 @@ fn telemetry_json(state: &Shared, id: &str) -> String {
         VAD_START.load(Ordering::Relaxed),
         VAD_STOP.load(Ordering::Relaxed),
         VAD_HANG.load(Ordering::Relaxed),
-        REC_GAIN.load(Ordering::Relaxed)
+        REC_GAIN.load(Ordering::Relaxed),
+        speaker::volume(),
+        WAKE_READY.load(Ordering::Relaxed)
     )
 }
 
@@ -1016,6 +1205,16 @@ fn apply_command(msg: &str) {
             REC_GAIN.store((v as u32).clamp(1, 256), Ordering::Relaxed);
         }
         return;
+    }
+    // динамик: {"type":"cmd","vol":..} | {"tone":..,"ms":..} | {"stop":1}
+    if let Some(v) = json_num(msg, "vol") {
+        speaker::set_volume(v.clamp(0.0, 100.0) as u8);
+    }
+    if json_num(msg, "stop").is_some() {
+        speaker::clear();
+    }
+    if let Some(f) = json_num(msg, "tone") {
+        speaker::tone(f.clamp(50.0, 8000.0), json_num(msg, "ms").unwrap_or(300.0).max(0.0) as u32);
     }
     if let Some(i) = msg.find("\"led\":\"") {
         let v = &msg[i + 7..];

@@ -26,3 +26,10 @@ esp-idf-svc = "0.51"
 
 [build-dependencies]
 embuild = "0.33"
+
+# ESP-SR (ключевое слово «Sophia», WakeNet9) в сборке ESP-IDF и привязки к нему:
+# esp_idf_svc::sys::esp_sr. Модель лежит в разделе flash "model" (srmodels.bin).
+[[package.metadata.esp-idf-sys.extra_components]]
+remote_component = { name = "espressif/esp-sr", version = "2.4.6" }
+bindings_header = "esp_sr_bindings.h"
+bindings_module = "esp_sr"
