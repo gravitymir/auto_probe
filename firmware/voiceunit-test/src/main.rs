@@ -22,7 +22,7 @@
 //! и сразу при событиях, сервер шлёт команды {"type":"cmd","led":...} мгновенно.
 //! Нет связи: 3 попытки через 5 с, потом пауза 30 с (BOOT - попробовать сразу).
 //! Динамик (src/speaker.rs): речь и радио от сервера, «слушаю» после «София»,
-//! «Connected and ready» при подключении к серверу,
+//! «Connected» при подключении к серверу,
 //! «нет сети» и «сервер недоступен» - из прошивки (assets/).
 //!
 //! Запись по голосу: оба микрофона громче своего фона на VAD_START дБ (2 замера
@@ -79,11 +79,15 @@ static LED_MODE: AtomicU8 = AtomicU8::new(LED_BLINK);
 static SERVER_NOW: AtomicBool = AtomicBool::new(false);
 /// Что-то поменялось (кнопка, светодиод) - отправить телеметрию, не дожидаясь секунды.
 static SEND_NOW: AtomicBool = AtomicBool::new(false);
-/// Сказать «Connected and ready» при следующем подключении к серверу.
+/// Сказать «Connected» при следующем подключении к серверу.
 static SAY_READY: AtomicBool = AtomicBool::new(true);
 const TELEMETRY_PERIOD: Duration = Duration::from_secs(1);
 const RETRY_DELAY: Duration = Duration::from_secs(5);
 const RETRY_COUNT: u32 = 3;
+/// Попыток подключиться к каждой сети при старте (между ними 1 с), каждая не
+/// дольше WIFI_TRY_MS.
+const WIFI_TRIES: u32 = 4;
+const WIFI_TRY_MS: u64 = 4000;
 const SERVER_BACKOFF: Duration = Duration::from_secs(30);
 /// Адрес сервера в той сети из site::WIFI, к которой подключились.
 static SERVER_HOST: std::sync::OnceLock<String> = std::sync::OnceLock::new();
@@ -223,7 +227,47 @@ fn run() -> anyhow::Result<()> {
     // Без энергосбережения Wi-Fi: входящий кадр не ждёт, пока модем "проснётся"
     // (до 100-300 мс). Плата питается от USB/машины - экономить нечего.
     unsafe { sys::esp_wifi_set_ps(sys::wifi_ps_type_t_WIFI_PS_NONE) };
-    let mut seen: Vec<String> = Vec::new();
+    // Подключение - сразу, сети по порядку из site.rs; скан эфира (~8 с) - потом,
+    // он нужен только для сводки.
+    //
+    // Плата обычно перезагружается, не попрощавшись с роутером, и роутер с PMF
+    // (защита кадров управления; в ESP-IDF 5 её со стороны платы не выключить)
+    // первую попытку отклоняет ("Association refused temporarily") и 5-10 с
+    // проверяет старое подключение. Поэтому несколько коротких попыток: начать
+    // как можно раньше и не ждать отказа по 15 с, как блокирующий connect().
+    let mut sta_txt = String::new();
+    let mut sta_ip = String::new();
+    let mut server_host = first_host;
+    let mut configured = first_ssid;
+    for &(s, pass, host) in site::WIFI {
+        if s != configured {
+            let _ = wifi.disconnect();
+            wifi.set_configuration(&mixed(s, pass))?;
+            configured = s;
+        }
+        server_host = host; // при неудаче со всеми - адрес последней пробованной
+        let mut last_err = String::new();
+        for attempt in 1..=WIFI_TRIES {
+            match wifi_try(&mut wifi) {
+                Ok(()) => {
+                    let ip = wifi.wifi().sta_netif().get_ip_info()?.ip.to_string();
+                    let _ = writeln!(sta_txt, "STA     : \"{s}\" -> http://{ip} (attempt {attempt})");
+                    sta_ip = ip;
+                    break;
+                }
+                Err(e) => {
+                    log::warn!("Wi-Fi \"{s}\" attempt {attempt}/{WIFI_TRIES}: {e}");
+                    last_err = e;
+                    let _ = wifi.disconnect();
+                    FreeRtos::delay_ms(1000);
+                }
+            }
+        }
+        if !sta_ip.is_empty() {
+            break;
+        }
+        let _ = writeln!(sta_txt, "STA     : \"{s}\" not connected ({last_err})");
+    }
     match wifi.scan() {
         Ok(mut aps) => {
             aps.sort_by(|a, b| b.signal_strength.cmp(&a.signal_strength));
@@ -231,41 +275,12 @@ fn run() -> anyhow::Result<()> {
             for ap in aps.iter().take(6) {
                 let _ = writeln!(summary, "          {:>4} dBm  ch{:<2}  {}", ap.signal_strength, ap.channel, ap.ssid);
             }
-            seen = aps.iter().map(|ap| ap.ssid.to_string()).collect();
         }
         Err(e) => {
             let _ = writeln!(summary, "WIFI    : scan FAILED: {e}");
         }
     }
-    // Сети из списка, которые видны в эфире, по приоритету списка. Скан пустой
-    // (сбой или сеть скрытая) - пробуем весь список подряд.
-    let mut tries: Vec<(&str, &str, &str)> =
-        site::WIFI.iter().copied().filter(|(s, _, _)| seen.iter().any(|x| x == s)).collect();
-    if tries.is_empty() {
-        tries = site::WIFI.to_vec();
-    }
-    let mut sta_ip = String::new();
-    let mut server_host = first_host;
-    let mut configured = first_ssid;
-    for (s, pass, host) in tries {
-        if s != configured {
-            let _ = wifi.disconnect();
-            wifi.set_configuration(&mixed(s, pass))?;
-            configured = s;
-        }
-        server_host = host; // при неудаче со всеми - адрес последней пробованной
-        match wifi.connect().and_then(|_| wifi.wait_netif_up()) {
-            Ok(()) => {
-                let ip = wifi.wifi().sta_netif().get_ip_info()?.ip.to_string();
-                let _ = writeln!(summary, "STA     : \"{s}\" -> http://{ip}");
-                sta_ip = ip;
-                break;
-            }
-            Err(e) => {
-                let _ = writeln!(summary, "STA     : \"{s}\" not connected ({e})");
-            }
-        }
-    }
+    summary.push_str(&sta_txt);
     let _ = SERVER_HOST.set(server_host.to_string());
     if sta_ip.is_empty() {
         speaker::say(speaker::NO_WIFI);
@@ -354,16 +369,16 @@ fn run() -> anyhow::Result<()> {
     loop {
         FreeRtos::delay_ms(100);
         tick += 1;
-        // Wi-Fi площадки: следим за связью, при потере - переподключение раз в 30 с.
+        // Wi-Fi площадки: следим за связью, при потере - переподключение раз в 10 с.
         if tick % 20 == 0 {
             let up = wifi.is_connected().unwrap_or(false);
             if wifi_was_up && !up {
                 speaker::say(speaker::NO_WIFI); // связь пропала - сказать один раз
             }
             wifi_was_up = up;
-            if !up && last_reconnect.elapsed() > Duration::from_secs(30) {
+            if !up && last_reconnect.elapsed() > Duration::from_secs(10) {
                 last_reconnect = Instant::now();
-                let _ = wifi.connect().and_then(|_| wifi.wait_netif_up());
+                let _ = wifi_try(&mut wifi);
             }
             let ip = if wifi.is_connected().unwrap_or(false) {
                 wifi.wifi().sta_netif().get_ip_info().map(|i| i.ip.to_string()).unwrap_or_default()
@@ -377,6 +392,24 @@ fn run() -> anyhow::Result<()> {
                 0
             };
             let mut s = state.lock().unwrap();
+            if !ip.is_empty() && summary.contains("not connected") {
+                // переподключились позже старта - сводка не должна врать
+                let ssid_now = unsafe { core::ffi::CStr::from_ptr(rec.ssid.as_ptr() as *const _) }
+                    .to_string_lossy()
+                    .into_owned();
+                summary = summary
+                    .lines()
+                    .filter(|l| !l.starts_with("STA     :"))
+                    .map(|l| {
+                        if l.starts_with("AP      :") {
+                            format!("STA     : \"{ssid_now}\" -> http://{ip} (reconnected)\n{l}\n")
+                        } else {
+                            format!("{l}\n")
+                        }
+                    })
+                    .collect();
+                s.summary = summary.clone();
+            }
             s.sta_ip = ip;
             s.rssi = rssi;
         }
@@ -430,6 +463,25 @@ fn run() -> anyhow::Result<()> {
             last_summary = Instant::now();
         }
     }
+}
+
+/// Одна попытка подключиться к настроенной сети: связь с точкой - не дольше
+/// WIFI_TRY_MS (отказ роутера виден сразу, а не через 15 с), потом адрес по DHCP.
+fn wifi_try(wifi: &mut BlockingWifi<EspWifi<'static>>) -> Result<(), String> {
+    // ESP_ERR_WIFI_CONN - подключение уже идёт: не ошибка, просто ждём его
+    if let Err(e) = wifi.wifi_mut().connect() {
+        if e.code() != sys::ESP_ERR_WIFI_CONN as i32 {
+            return Err(e.to_string());
+        }
+    }
+    let t = Instant::now();
+    while !wifi.is_connected().unwrap_or(false) {
+        if t.elapsed() > Duration::from_millis(WIFI_TRY_MS) {
+            return Err("no association".into());
+        }
+        FreeRtos::delay_ms(100);
+    }
+    wifi.wait_netif_up().map_err(|e| format!("no IP: {e}"))
 }
 
 fn chip_report(out: &mut String, mac: &[u8; 6]) {
@@ -1042,7 +1094,7 @@ fn ws_session(addr: SocketAddr, id: &str, state: &Shared, link: &Link) -> (bool,
     }
     buf.drain(..head_end);
     state.lock().unwrap().server = format!("online ws://{addr}");
-    // после старта и после объявленного обрыва - «Connected and ready»
+    // после старта и после объявленного обрыва - «Connected»
     if SAY_READY.swap(false, Ordering::Relaxed) {
         speaker::say(speaker::READY);
     }

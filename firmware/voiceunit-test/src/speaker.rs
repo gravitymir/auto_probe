@@ -29,7 +29,7 @@ const AMP_MAX: f32 = 0.7;
 pub const LISTENING: &[u8] = include_bytes!("../assets/listening.pcm");
 pub const NO_WIFI: &[u8] = include_bytes!("../assets/no_wifi.pcm");
 pub const SERVER_DOWN: &[u8] = include_bytes!("../assets/server_down.pcm");
-pub const READY: &[u8] = include_bytes!("../assets/ready.pcm"); // «Connected and ready.» (голос сервера, prompts/ready)
+pub const READY: &[u8] = include_bytes!("../assets/ready.pcm"); // «Connected.» (голос сервера, prompts/ready)
 
 static BUF: Mutex<VecDeque<i16>> = Mutex::new(VecDeque::new());
 static VOLUME: AtomicU8 = AtomicU8::new(60);
