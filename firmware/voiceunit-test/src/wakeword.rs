@@ -1,8 +1,10 @@
 //! Ключевое слово «Sophia» на плате: ESP-SR WakeNet9 (по образцу ATOMVoiceS3R).
 //!
-//! Модель - в разделе flash "model" (srmodels.bin, прошивается отдельно). AFE на
-//! один канал ("M"): на вход - смесь двух микрофонов, 16 кГц, 16 бит. Подавление
-//! эха не нужно: динамик в этой прошивке выключен.
+//! Модель - в разделе flash "model" (srmodels.bin, прошивается отдельно). AFE
+//! "MR": микрофон (смесь двух, 16 кГц, 16 бит) и опорный канал - что сама плата
+//! в этот момент отдаёт в динамик. AEC (подавление эха) вычитает опорный звук из
+//! микрофона: «София» слышна сквозь собственное радио / USB-колонку. Не вышло
+//! (память, модель) - запасной вариант "M", без AEC.
 //!
 //! Всё это - небезопасный FFI в компонент esp-sr; привязки из esp_sr_bindings.h.
 
@@ -13,13 +15,26 @@ pub struct WakeWord {
     handle: *const sys::esp_afe_sr_iface_t,
     data: *mut sys::esp_afe_sr_data_t,
     frame: usize,
+    /// Есть опорный канал: кадр - пары [микрофон, опорный].
+    pub aec: bool,
 }
 
 // AFE живёт в одной задаче, указатели наружу не уходят.
 unsafe impl Send for WakeWord {}
 
 impl WakeWord {
+    /// С подавлением эха, а если не вышло - без него.
     pub fn new() -> Result<Self> {
+        match Self::with_format(true) {
+            Ok(w) => Ok(w),
+            Err(e) => {
+                log::warn!("wake word: AFE with AEC failed ({e}) - falling back to mic only");
+                Self::with_format(false)
+            }
+        }
+    }
+
+    fn with_format(aec: bool) -> Result<Self> {
         unsafe {
             let models = sys::esp_srmodel_init(c"model".as_ptr());
             if models.is_null() || (*models).num <= 0 {
@@ -30,7 +45,7 @@ impl WakeWord {
                 bail!("WakeNet model wn9_sophia_tts not in partition");
             }
             let cfg = sys::afe_config_init(
-                c"M".as_ptr(),
+                if aec { c"MR".as_ptr() } else { c"M".as_ptr() },
                 models,
                 sys::afe_type_t_AFE_TYPE_SR,
                 sys::afe_mode_t_AFE_MODE_HIGH_PERF,
@@ -39,7 +54,13 @@ impl WakeWord {
                 bail!("afe_config_init returned null");
             }
             (*cfg).wakenet_init = true;
-            (*cfg).aec_init = false;
+            (*cfg).aec_init = aec;
+            if aec {
+                (*cfg).aec_mode = sys::aec_mode_t_AEC_MODE_SR_HIGH_PERF;
+                // буферы AEC - в PSRAM: внутренней RAM на стеки задач и так мало
+                (*cfg).memory_alloc_mode = sys::afe_memory_alloc_mode_t_AFE_MEMORY_ALLOC_MORE_PSRAM;
+                log::info!("wake word: AEC on, filter length {}", (*cfg).aec_filter_length);
+            }
             (*cfg).se_init = false;
             (*cfg).ns_init = false;
             (*cfg).vad_init = false;
@@ -66,8 +87,8 @@ impl WakeWord {
             if chunk == 0 || ch == 0 {
                 bail!("AFE feed size unknown (chunk {chunk}, channels {ch})");
             }
-            log::info!("wake word: AFE ready, feed {chunk} x {ch}");
-            Ok(Self { handle, data, frame: chunk * ch })
+            log::info!("wake word: AFE ready, feed {chunk} x {ch}, AEC {aec}");
+            Ok(Self { handle, data, frame: chunk * ch, aec })
         }
     }
 

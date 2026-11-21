@@ -51,6 +51,24 @@ pub static UNDERRUNS: AtomicU32 = AtomicU32::new(0);
 pub static OVERFLOW: AtomicU32 = AtomicU32::new(0);
 pub static PEAK: AtomicU32 = AtomicU32::new(0);
 
+/// Опорный канал для подавления эха: ровно то, что ушло в усилитель (после
+/// громкости), тишина тоже - чтобы шёл непрерывно и в том же темпе, что микрофон.
+static REF: Mutex<VecDeque<i16>> = Mutex::new(VecDeque::new());
+/// Отставание опорного от микрофона - не больше 64 мс сверх запрошенного: иначе
+/// эхо выходит за длину фильтра AEC.
+const REF_MAX_LAG: usize = RATE as usize * 64 / 1000;
+
+/// n отсчётов опорного канала (что играло) для AEC; не хватает - тишина.
+pub fn take_ref(n: usize) -> Vec<i16> {
+    let mut r = REF.lock().unwrap();
+    let extra = r.len().saturating_sub(n + REF_MAX_LAG);
+    r.drain(..extra);
+    let take = n.min(r.len());
+    let mut out: Vec<i16> = r.drain(..take).collect();
+    out.resize(n, 0);
+    out
+}
+
 /// Сколько отсчётов ждёт в буфере (USB держит задержку небольшой).
 pub fn queued() -> usize {
     BUF.lock().unwrap().len()
@@ -157,13 +175,18 @@ pub fn run<P: OutputPin>(mut tx: I2sDriver<'static, I2sTx>, mut sd: PinDriver<'s
             amp_on = false;
         }
         let g = VOLUME.load(Ordering::Relaxed) as f32 / 100.0 * AMP_MAX;
+        let mut refs = REF.lock().unwrap();
         for (k, s) in frame.iter().enumerate() {
             let v = ((*s as f32) * g) as i16;
+            refs.push_back(v);
             PEAK.fetch_max(v.unsigned_abs() as u32, Ordering::Relaxed);
             let b = v.to_le_bytes();
             out[k * 4..k * 4 + 2].copy_from_slice(&b);
             out[k * 4 + 2..k * 4 + 4].copy_from_slice(&b);
         }
+        let extra = refs.len().saturating_sub(RATE as usize / 2); // микрофон не берёт - не копить
+        refs.drain(..extra);
+        drop(refs);
         // write с BLOCK держит темп: I2S забирает ровно 16 кГц
         let _ = tx.write_all(&out, BLOCK);
     }

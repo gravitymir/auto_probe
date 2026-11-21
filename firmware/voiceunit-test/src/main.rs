@@ -113,6 +113,8 @@ static WAKE_READY: AtomicBool = AtomicBool::new(false);
 /// «София» услышана, мик-задача ещё не начала запись команды.
 static WAKE_PENDING: AtomicBool = AtomicBool::new(false);
 static WAKE_COUNT: AtomicU32 = AtomicU32::new(0);
+/// Ключевое слово с подавлением эха: микрофон шлёт ему пары [микрофон, опорный].
+static WAKE_AEC: AtomicBool = AtomicBool::new(false);
 /// Звук от сервера не играть: от «София» до конца записи команды. Сервер шлёт
 /// радио на 0.4 с вперёд и о «София» узнаёт не сразу - уже отправленный кусок
 /// музыки иначе звучал бы сразу после «listening» (заикание радио).
@@ -626,9 +628,17 @@ fn mic_task(
             }
         }
         usbaudio::feed_mic(&mono); // режим USB-колонки: микрофон для ПК
+        // опорный канал берём всегда - в темпе микрофона, иначе он отстанет
+        let refs = speaker::take_ref(mono.len());
         if let Some(tx) = wake_tx.as_ref() {
+            let frame = if WAKE_AEC.load(Ordering::Relaxed) {
+                // пары [микрофон, что играло в динамик] - AEC вычтет второе из первого
+                mono.iter().zip(refs.iter()).flat_map(|(&m, &r)| [m, r]).collect()
+            } else {
+                mono
+            };
             // задача ключевого слова отстаёт - кусок теряется, микрофон не ждёт
-            if let Err(TrySendError::Disconnected(_)) = tx.try_send(mono) {
+            if let Err(TrySendError::Disconnected(_)) = tx.try_send(frame) {
                 wake_tx = None; // модели нет - задача закончилась
             }
         }
@@ -749,8 +759,10 @@ fn wake_task(rx: std::sync::mpsc::Receiver<Vec<i16>>) {
     };
     let n = ww.frame_len();
     let mut buf: Vec<i16> = Vec::with_capacity(n * 2);
+    WAKE_AEC.store(ww.aec, Ordering::Relaxed);
+    while rx.try_recv().is_ok() {} // накопленное до старта - ещё моно, выбросить
     WAKE_READY.store(true, Ordering::Relaxed);
-    log::info!("wake word ON: say \"Sophia\"");
+    log::info!("wake word ON: say \"Sophia\" (echo cancellation: {})", ww.aec);
     while let Ok(chunk) = rx.recv() {
         buf.extend_from_slice(&chunk);
         while buf.len() >= n {
