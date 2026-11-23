@@ -1,4 +1,2 @@
 target/
 
-# настройки площадки с паролем Wi-Fi
-voiceunit-test/src/site.rs
